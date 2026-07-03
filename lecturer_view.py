@@ -1,12 +1,13 @@
 import tkinter as tk
 from tkinter import messagebox
 from core import BaseDashboard, CoreManager
+from theme import AppTheme
 
 class LecturerDashboard(BaseDashboard):
     def build_home(self):
         for w in self.main_content.winfo_children(): w.destroy()
-        tk.Label(self.main_content, text=f"👨‍🏫 {self.user_obj.fullname}", font=("Helvetica Neue", 16, "bold"), bg="#F2F2F7").pack(anchor="w", pady=(0,15))
-        
+        tk.Label(self.main_content, text=f"👨‍🏫 {self.user_obj.fullname}", font=AppTheme.TITLE_L, bg=AppTheme.BG_APP, fg=AppTheme.TEXT_MAIN).pack(anchor="w", pady=(0,15))
+          
         menu_items = [
             ("📅", "Lịch Giảng", self.view_schedule),
             ("👥", "Danh sách SV", self.view_students),

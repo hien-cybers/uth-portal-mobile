@@ -1,15 +1,16 @@
 import tkinter as tk
 from tkinter import messagebox
 from core import BaseDashboard, CoreManager
+from theme import AppTheme
 
 class StudentDashboard(BaseDashboard):
     def build_home(self):
         for w in self.main_content.winfo_children(): w.destroy()
         
-        card = tk.Frame(self.main_content, bg="white", padx=15, pady=15, bd=0)
+        card = tk.Frame(self.main_content, bg=AppTheme.BG_CARD, padx=15, pady=15, bd=0)
         card.pack(fill=tk.X, pady=(0, 10))
-        tk.Label(card, text=f"👤 {self.user_obj.fullname} ({self.user_obj.id})", font=("Helvetica Neue", 15, "bold"), bg="white", fg="#1C1C1E").pack(anchor="w")
-        tk.Label(card, text=f"Tín chỉ: {self.user_obj.credits}/120 | Nợ: {self.user_obj.debt}đ", font=("Helvetica Neue", 13), fg="#008080", bg="white").pack(anchor="w", pady=(5,0))
+        tk.Label(card, text=f"👤 {self.user_obj.fullname} ({self.user_obj.id})", font=AppTheme.TITLE_M, bg=AppTheme.BG_CARD, fg=AppTheme.TEXT_MAIN).pack(anchor="w")
+        tk.Label(card, text=f"Tín chỉ: {self.user_obj.credits}/120 | Nợ: {self.user_obj.debt}đ", font=AppTheme.BODY_L, fg=AppTheme.PRIMARY, bg=AppTheme.BG_CARD).pack(anchor="w", pady=(5,0))
 
         menu_items = [
             ("👤", "Hồ sơ SV", self.view_profile),
@@ -36,16 +37,20 @@ class StudentDashboard(BaseDashboard):
     def view_timetable(self):
         self.set_subpage("Thời khóa biểu")
         classes = CoreManager.get_query("SELECT c.ClassID, s.SubjectName, c.Schedule FROM COURSE_CLASS c JOIN REGISTRATION_FORM r ON c.ClassID = r.ClassID JOIN SUBJECT s ON c.SubjectID = s.SubjectID WHERE r.StudentID = ?", (self.user_obj.id,))
-        if not classes: tk.Label(self.main_content, text="Chưa có lịch học", bg="#F2F2F7").pack(pady=20)
+        if not classes: 
+            tk.Label(self.main_content, text="Chưa có lịch học", font=AppTheme.BODY_L, bg=AppTheme.BG_APP, fg=AppTheme.TEXT_MUTED).pack(pady=20)
         scroll = self.create_scroll_canvas()
-        for c in classes: self.create_card(scroll, c['SubjectName'], c['ClassID'], c['Schedule'])
+        for c in classes: 
+            self.create_card(scroll, c['SubjectName'], c['ClassID'], c['Schedule'])
 
     def view_grades(self):
         self.set_subpage("Bảng điểm")
         grades = CoreManager.get_query("SELECT s.SubjectName, a.FinalScore, a.LetterGrade FROM ACADEMIC_RESULT a JOIN REGISTRATION_FORM r ON a.FormID = r.FormID JOIN COURSE_CLASS c ON r.ClassID = c.ClassID JOIN SUBJECT s ON c.SubjectID = s.SubjectID WHERE r.StudentID = ?", (self.user_obj.id,))
-        if not grades: tk.Label(self.main_content, text="Chưa có điểm", bg="#F2F2F7").pack(pady=20)
+        if not grades: 
+            tk.Label(self.main_content, text="Chưa có điểm", font=AppTheme.BODY_L, bg=AppTheme.BG_APP, fg=AppTheme.TEXT_MUTED).pack(pady=20)
         scroll = self.create_scroll_canvas()
-        for g in grades: self.create_card(scroll, g['SubjectName'], f"Điểm hệ 10: {g['FinalScore']}", f"Điểm chữ: {g['LetterGrade']}")
+        for g in grades: 
+            self.create_card(scroll, g['SubjectName'], f"Điểm hệ 10: {g['FinalScore']}", f"Điểm chữ: {g['LetterGrade']}")
 
     def view_registration(self):
         self.set_subpage("Đăng ký Môn")
