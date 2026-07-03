@@ -87,7 +87,7 @@ class LoginView(PhoneScreen):
 class MainApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Máy ảo iPhone 17 Pro Max - UTH Portal")
+        self.title("APP - UTH Portal")
         self.geometry("420x860")
         self.resizable(False, False)
         
