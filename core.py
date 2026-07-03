@@ -2,9 +2,10 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
 from datetime import date
+from theme import AppTheme
 
 def initialize_database():
-    conn = sqlite3.connect('uth_portal_final.db') 
+    conn = sqlite3.connect('uth_portal_final.db')
     cursor = conn.cursor()
     cursor.execute('''CREATE TABLE IF NOT EXISTS ACCOUNT (AccountID TEXT PRIMARY KEY, OwnerID TEXT NOT NULL, Password TEXT NOT NULL, Role TEXT NOT NULL, Status TEXT DEFAULT 'Active')''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS STUDENT (StudentID TEXT PRIMARY KEY, Fullname TEXT, Major TEXT, Credits INTEGER, GPA REAL, Debt INTEGER)''')
@@ -81,14 +82,15 @@ class CoreManager:
             return True, "Thành công!"
         except Exception as e: return False, f"Lỗi: {e}"
         finally: conn.close()
-
 class PhoneScreen(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent, bg="black")
         self.controller = controller
-        self.screen = tk.Frame(self, bg="#F2F2F7")
+        
+        self.screen = tk.Frame(self, bg=AppTheme.BG_APP)
         self.screen.pack(fill=tk.BOTH, expand=True, padx=10, pady=15)
         self.screen.pack_propagate(False)
+        
         self.dynamic_island = tk.Frame(self.screen, bg="black", width=120, height=25)
         self.dynamic_island.pack(side=tk.TOP, pady=(5, 0))
         self.dynamic_island.pack_propagate(False)
@@ -97,14 +99,16 @@ class BaseDashboard(PhoneScreen):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
         self.user_obj = None
-        self.nav = tk.Frame(self.screen, bg="white", height=60)
+        self.nav = tk.Frame(self.screen, bg=AppTheme.BG_CARD, height=60)
         self.nav.pack(fill=tk.X, side=tk.TOP, pady=(10, 0))
         self.nav.pack_propagate(False)
-        self.btn_back = tk.Button(self.nav, text="< Trang chủ", fg="#008080", bg="white", bd=0, font=("Helvetica Neue", 14), command=self.go_home)
-        self.lbl_title = tk.Label(self.nav, text="Tổng quan", font=("Helvetica Neue", 18, "bold"), bg="white", fg="#1C1C1E")
+
+        self.btn_back = tk.Button(self.nav, text="< Trang chủ", fg=AppTheme.PRIMARY, bg=AppTheme.BG_CARD, bd=0, font=AppTheme.BODY_L, command=self.go_home)
+        self.lbl_title = tk.Label(self.nav, text="Tổng quan", font=AppTheme.H3, bg=AppTheme.BG_CARD, fg=AppTheme.TEXT_MAIN)
         self.lbl_title.pack(side=tk.LEFT, padx=15, pady=15)
-        tk.Button(self.nav, text="Thoát", fg="#FF3B30", bg="white", bd=0, font=("Helvetica Neue", 14), command=lambda: self.controller.show_frame("LoginView")).pack(side=tk.RIGHT, padx=15)
-        self.main_content = tk.Frame(self.screen, bg="#F2F2F7")
+        tk.Button(self.nav, text="Thoát", fg=AppTheme.DANGER, bg=AppTheme.BG_CARD, bd=0, font=AppTheme.BODY_L, command=lambda: self.controller.show_frame("LoginView")).pack(side=tk.RIGHT, padx=15)
+        
+        self.main_content = tk.Frame(self.screen, bg=AppTheme.BG_APP)
         self.main_content.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
 
     def set_user(self, u):
@@ -121,12 +125,12 @@ class BaseDashboard(PhoneScreen):
         for w in self.main_content.winfo_children(): w.destroy()
         self.lbl_title.pack_forget()
         self.btn_back.pack(side=tk.LEFT, padx=10, pady=15)
-        tk.Label(self.main_content, text=title, font=("Helvetica Neue", 22, "bold"), bg="#F2F2F7").pack(anchor="w", pady=(0, 10))
+        tk.Label(self.main_content, text=title, font=AppTheme.H2, bg=AppTheme.BG_APP).pack(anchor="w", pady=(0, 10))
         
     def create_scroll_canvas(self):
-        canvas = tk.Canvas(self.main_content, bg="#F2F2F7", highlightthickness=0)
+        canvas = tk.Canvas(self.main_content, bg=AppTheme.BG_APP, highlightthickness=0)
         scroll = ttk.Scrollbar(self.main_content, orient="vertical", command=canvas.yview)
-        frm = tk.Frame(canvas, bg="#F2F2F7")
+        frm = tk.Frame(canvas, bg=AppTheme.BG_APP)
         frm.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.create_window((0, 0), window=frm, anchor="nw", width=360)
         canvas.configure(yscrollcommand=scroll.set)
@@ -134,24 +138,29 @@ class BaseDashboard(PhoneScreen):
         return frm
 
     def create_grid_menu(self, buttons_data):
-        grid_frame = tk.Frame(self.main_content, bg="#F2F2F7")
+        grid_frame = tk.Frame(self.main_content, bg=AppTheme.BG_APP)
         grid_frame.pack(fill=tk.BOTH, expand=True, pady=5)
         grid_frame.columnconfigure(0, weight=1)
         grid_frame.columnconfigure(1, weight=1)
         row, col = 0, 0
         for icon, text, cmd in buttons_data:
-            btn = tk.Button(grid_frame, text=f"{icon}\n{text}", font=("Helvetica Neue", 12, "bold"), bg="white", fg="#008080", bd=0, command=cmd)
+            btn = tk.Button(grid_frame, text=f"{icon}\n{text}", font=AppTheme.TITLE_M, bg=AppTheme.BG_CARD, fg=AppTheme.PRIMARY, bd=0, command=cmd)
             btn.grid(row=row, column=col, padx=5, pady=5, sticky="nsew", ipady=15)
             col += 1
             if col > 1: col, row = 0, row + 1
 
-    def create_card(self, parent, title, line1, line2=None, btn_txt=None, btn_cmd=None, btn_color="#008080"):
-        card = tk.Frame(parent, bg="white", padx=15, pady=15, relief=tk.FLAT)
+    def create_card(self, parent, title, line1, line2=None, btn_txt=None, btn_cmd=None, btn_color=AppTheme.PRIMARY):
+        card = tk.Frame(parent, bg=AppTheme.BG_CARD, padx=15, pady=15, relief=tk.FLAT)
         card.pack(fill=tk.X, pady=6)
-        tk.Label(card, text=title, font=("Helvetica Neue", 15, "bold"), bg="white", fg="#1C1C1E").pack(anchor="w")
-        tk.Label(card, text=line1, font=("Helvetica Neue", 12), fg="#8E8E93", bg="white").pack(anchor="w", pady=(2,0))
-        if line2: tk.Label(card, text=line2, font=("Helvetica Neue", 12, "bold"), fg="#008080", bg="white").pack(anchor="w")
-        if btn_txt: tk.Button(card, text=btn_txt, font=("Helvetica Neue", 12, "bold"), bg=btn_color, fg="white", bd=0, command=btn_cmd).pack(anchor="e", pady=(5,0), ipadx=10, ipady=5)
+        
+        tk.Label(card, text=title, font=AppTheme.TITLE_L, bg=AppTheme.BG_CARD, fg=AppTheme.TEXT_MAIN).pack(anchor="w")
+        tk.Label(card, text=line1, font=AppTheme.BODY_M, fg=AppTheme.TEXT_MUTED, bg=AppTheme.BG_CARD).pack(anchor="w", pady=(2,0))
+        
+        if line2: 
+            tk.Label(card, text=line2, font=AppTheme.TITLE_S, fg=AppTheme.PRIMARY, bg=AppTheme.BG_CARD).pack(anchor="w")
+            
+        if btn_txt: 
+            tk.Button(card, text=btn_txt, font=AppTheme.BTN_TEXT, bg=btn_color, fg=AppTheme.BG_CARD, bd=0, command=btn_cmd).pack(anchor="e", pady=(5,0), ipadx=10, ipady=5)
 
     def dummy_action(self):
         messagebox.showinfo("Đang phát triển", "Tính năng này sẽ được cập nhật!")
