@@ -1,0 +1,19 @@
+name: Python Test CI
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - name: Chạy thử Database Seeding
+      run: |
+        python seed_data.py --with-scenarios
+        echo "Kiểm tra dữ liệu thành công!"

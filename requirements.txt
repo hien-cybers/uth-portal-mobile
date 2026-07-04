@@ -1,0 +1,2 @@
+# Dự án sử dụng các thư viện built-in của Python 3.x
+# Không yêu cầu cài đặt thêm package bên ngoài.
