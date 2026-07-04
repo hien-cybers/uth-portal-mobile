@@ -36,13 +36,28 @@ class StudentDashboard(BaseDashboard):
 
     def view_timetable(self):
         self.set_subpage("Thời khóa biểu")
-        classes = CoreManager.get_query("SELECT c.ClassID, s.SubjectName, c.Schedule FROM COURSE_CLASS c JOIN REGISTRATION_FORM r ON c.ClassID = r.ClassID JOIN SUBJECT s ON c.SubjectID = s.SubjectID WHERE r.StudentID = ?", (self.user_obj.id,))
+        classes = CoreManager.get_query("SELECT c.ClassID, s.SubjectName, c.Schedule, l.Fullname as Lecturer FROM COURSE_CLASS c JOIN REGISTRATION_FORM r ON c.ClassID = r.ClassID JOIN SUBJECT s ON c.SubjectID = s.SubjectID JOIN LECTURER l ON c.LecturerID = l.LecturerID WHERE r.StudentID = ?", (self.user_obj.id,))
         if not classes: 
-            tk.Label(self.main_content, text="Chưa có lịch học", font=AppTheme.BODY_L, bg=AppTheme.BG_APP, fg=AppTheme.TEXT_MUTED).pack(pady=20)
+            tk.Label(self.main_content, text="Chưa có lịch học tuần này", bg=AppTheme.BG_APP, fg=AppTheme.TEXT_MUTED, font=AppTheme.BODY_L).pack(pady=40)
+            return
+            
         scroll = self.create_scroll_canvas()
-        for c in classes: 
-            self.create_card(scroll, c['SubjectName'], c['ClassID'], c['Schedule'])
-
+        for c in classes:
+            frm = tk.Frame(scroll, bg=AppTheme.BG_CARD, padx=15, pady=15, relief=tk.FLAT)
+            frm.pack(fill=tk.X, pady=8)
+            
+            top_bar = tk.Frame(frm, bg=AppTheme.BG_CARD)
+            top_bar.pack(fill=tk.X)
+            tk.Label(top_bar, text=c['SubjectName'], font=AppTheme.TITLE_M, bg=AppTheme.BG_CARD, fg=AppTheme.TEXT_MAIN).pack(side=tk.LEFT)
+            
+            if "T2" in c['Schedule']: tag, color = "Đang diễn ra", AppTheme.PRIMARY 
+            elif "T4" in c['Schedule']: tag, color = "Sắp tới", AppTheme.WARNING
+            else: tag, color = "Sau này", AppTheme.TEXT_MUTED
+            
+            tk.Label(top_bar, text=tag, font=AppTheme.BODY_S, bg=color, fg=AppTheme.BG_CARD, padx=8, pady=2).pack(side=tk.RIGHT)
+            
+            tk.Label(frm, text=f"🕒 {c['Schedule']}", font=AppTheme.BODY_M, fg=AppTheme.PRIMARY, bg=AppTheme.BG_CARD).pack(anchor="w", pady=(8,2))
+            tk.Label(frm, text=f"👨‍🏫 Giảng viên: {c['Lecturer']}", font=AppTheme.BODY_M, fg=AppTheme.TEXT_MUTED, bg=AppTheme.BG_CARD).pack(anchor="w")
     def view_grades(self):
         self.set_subpage("Bảng điểm")
         grades = CoreManager.get_query("SELECT s.SubjectName, a.FinalScore, a.LetterGrade FROM ACADEMIC_RESULT a JOIN REGISTRATION_FORM r ON a.FormID = r.FormID JOIN COURSE_CLASS c ON r.ClassID = c.ClassID JOIN SUBJECT s ON c.SubjectID = s.SubjectID WHERE r.StudentID = ?", (self.user_obj.id,))
@@ -76,10 +91,22 @@ class StudentDashboard(BaseDashboard):
         self.create_card(self.main_content, "Công nợ Học kỳ", f"Cần đóng: {self.user_obj.debt} VND", None, "Thanh toán ngay" if self.user_obj.debt > 0 else None, self.pay_tuition)
 
     def process_reg(self, cid):
-        cap = CoreManager.get_query("SELECT MaxCapacity, CurrentEnrollment FROM COURSE_CLASS WHERE ClassID = ?", (cid,))[0]
-        if cap['CurrentEnrollment'] >= cap['MaxCapacity']: messagebox.showerror("Lỗi", "Lớp đã đầy!"); return
+        cap = CoreManager.get_query("SELECT MaxCapacity, CurrentEnrollment, Schedule FROM COURSE_CLASS WHERE ClassID = ?", (cid,))[0]
+        if cap['CurrentEnrollment'] >= cap['MaxCapacity']: 
+            messagebox.showerror("Lỗi", "Lớp đã đầy!")
+            return
+        new_time_slot = cap['Schedule'].split(' - ')[0] 
+        current_classes = CoreManager.get_query("SELECT c.Schedule, s.SubjectName FROM REGISTRATION_FORM r JOIN COURSE_CLASS c ON r.ClassID = c.ClassID JOIN SUBJECT s ON c.SubjectID = s.SubjectID WHERE r.StudentID = ?", (self.user_obj.id,))
+        for c in current_classes:
+            existing_time_slot = c['Schedule'].split(' - ')[0]
+            if new_time_slot == existing_time_slot:
+                messagebox.showerror("Trùng lịch", f"Bạn không thể đăng ký do trùng lịch {new_time_slot} với môn {c['SubjectName']}!")
+                return
         res = CoreManager.execute_query("INSERT INTO REGISTRATION_FORM VALUES (?, ?, ?, ?)", (f"REG-{self.user_obj.id}-{cid}", self.user_obj.id, cid, "2024-01-01"))
-        if res[0]: CoreManager.execute_query("UPDATE COURSE_CLASS SET CurrentEnrollment = CurrentEnrollment + 1 WHERE ClassID = ?", (cid,)); messagebox.showinfo("OK", "Đăng ký thành công!"); self.view_registration()
+        if res[0]: 
+            CoreManager.execute_query("UPDATE COURSE_CLASS SET CurrentEnrollment = CurrentEnrollment + 1 WHERE ClassID = ?", (cid,))
+            messagebox.showinfo("OK", "Đăng ký thành công!")
+            self.view_registration()
 
     def process_cancel(self, fid, cid):
         CoreManager.execute_query("DELETE FROM REGISTRATION_FORM WHERE FormID = ?", (fid,))
