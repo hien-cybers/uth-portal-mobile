@@ -4,7 +4,7 @@ from student_view import StudentDashboard
 from lecturer_view import LecturerDashboard
 from admin_view import AdminDashboard
 from theme import AppTheme
-
+from core import CoreManager
 class SplashScreen(PhoneScreen):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
@@ -42,6 +42,7 @@ class LoginView(PhoneScreen):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
         self.current_role = tk.StringVar(value="Student")
+        self.login_attempts = {}
         
         content = tk.Frame(self.screen, bg=AppTheme.BG_APP)
         content.pack(fill=tk.BOTH, expand=True, pady=20)
@@ -79,15 +80,34 @@ class LoginView(PhoneScreen):
         self.btn_adm.config(bg=AppTheme.BG_CARD if role=="Admin" else AppTheme.BORDER, font=AppTheme.TITLE_M if role=="Admin" else AppTheme.BODY_M)
         self.e_usr.delete(0, tk.END)
         self.e_usr.insert(0, "STU001" if role=="Student" else "LEC001" if role=="Lecturer" else "ADM001")
+        self.lbl_err.config(text="")
 
     def do_login(self):
-        res = AuthManager.login(self.e_usr.get().strip(), self.e_pwd.get().strip(), self.current_role.get())
+        usr = self.e_usr.get().strip()
+        pwd = self.e_pwd.get().strip()
+        role = self.current_role.get()
+
+        if self.login_attempts.get(usr, 0) >= 3:
+            self.lbl_err.config(text="⚠️ Tài khoản đã bị khóa do nhập sai 3 lần!")
+            return
+
+        res = AuthManager.login(usr, pwd, role)
+        
         if res["status"] == "success":
+            self.login_attempts[usr] = 0
             self.lbl_err.config(text="")
             self.controller.show_dashboard(f"{res['role']}Dashboard", res['user_obj'])
         else:
-            self.lbl_err.config(text=f"⚠️ {res['message']}")
-
+            if "bị khóa" in res["message"]:
+                self.lbl_err.config(text=f"⚠️ {res['message']}")
+            else:
+                self.login_attempts[usr] = self.login_attempts.get(usr, 0) + 1
+                if self.login_attempts[usr] >= 3:
+                    
+                    CoreManager.execute_query("UPDATE ACCOUNT SET Status = 'Locked' WHERE AccountID = ?", (usr,))
+                    self.lbl_err.config(text="⚠️ Tài khoản bị khóa do nhập sai pass 3 lần!")
+                else:
+                    self.lbl_err.config(text=f"⚠️ Nhập sai lần {self.login_attempts[usr]}/3")
 class MainApp(tk.Tk):
     def __init__(self):
         super().__init__()

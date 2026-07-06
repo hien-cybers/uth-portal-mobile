@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, filedialog
+from tkinter import messagebox, filedialog, simpledialog
 import csv
 from core import BaseDashboard, CoreManager
 from theme import AppTheme
@@ -63,6 +63,36 @@ class LecturerDashboard(BaseDashboard):
 
     def view_class_students(self, cid):
         self.set_subpage(f"SV Lớp {cid}")
+        tk.Button(self.main_content, text="⬇️ Xuất File Excel", bg=AppTheme.SUCCESS, fg=AppTheme.BG_CARD, font=AppTheme.BTN_TEXT, bd=0, command=lambda: self.export_to_excel(cid, cid)).pack(fill=tk.X, pady=(0, 10), ipady=8)
+        
         students = CoreManager.get_query("SELECT r.FormID, s.Fullname FROM REGISTRATION_FORM r JOIN STUDENT s ON r.StudentID = s.StudentID WHERE r.ClassID = ?", (cid,))
         scroll = self.create_scroll_canvas()
-        for s in students: self.create_card(scroll, s['Fullname'], "Chưa có điểm", None, "Nhập", lambda fid=s['FormID']: messagebox.showinfo("Điểm", f"Form: {fid} - Tự động set điểm A!"))
+        
+        for s in students: 
+            score_data = CoreManager.get_query("SELECT FinalScore FROM ACADEMIC_RESULT WHERE FormID = ?", (s['FormID'],))
+            score_display = f"Điểm: {score_data[0]['FinalScore']}" if score_data else "Chưa có điểm"
+            
+            self.create_card(scroll, s['Fullname'], score_display, None, "Nhập Điểm", lambda fid=s['FormID']: self.enter_grade(fid, cid))
+
+    def enter_grade(self, fid, cid):
+        score_input = simpledialog.askstring("Nhập điểm", "Nhập điểm môn học (từ 0 đến 10):")
+        
+        if score_input is not None:
+            try:
+                score = float(score_input)
+                if score < 0 or score > 10:
+                    messagebox.showerror("Lỗi Logic", "Điểm không hợp lệ! Vui lòng nhập từ 0 đến 10.")
+                    return
+                if score >= 8.5: letter = 'A'
+                elif score >= 7.0: letter = 'B'
+                elif score >= 5.5: letter = 'C'
+                elif score >= 4.0: letter = 'D'
+                else: letter = 'F'
+                
+                # Lưu vào bảng ACADEMIC_RESULT
+                CoreManager.execute_query("INSERT OR REPLACE INTO ACADEMIC_RESULT (FormID, ProcessScore, FinalExamScore, FinalScore, LetterGrade) VALUES (?, ?, ?, ?, ?)", (fid, score, score, score, letter))
+                messagebox.showinfo("Thành công", f"Đã lưu điểm {score} ({letter}) thành công!")
+                
+                self.view_class_students(cid)
+            except ValueError:
+                messagebox.showerror("Lỗi Dữ Liệu", "Vui lòng nhập định dạng số nguyên hoặc số thập phân hợp lệ!")
