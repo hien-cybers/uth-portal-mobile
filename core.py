@@ -8,25 +8,25 @@ def initialize_database():
     conn = sqlite3.connect('uth_portal_final.db')
     cursor = conn.cursor()
     cursor.execute('''CREATE TABLE IF NOT EXISTS ACCOUNT (AccountID TEXT PRIMARY KEY, OwnerID TEXT NOT NULL, Password TEXT NOT NULL, Role TEXT NOT NULL, Status TEXT DEFAULT 'Active')''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS STUDENT (StudentID TEXT PRIMARY KEY, Fullname TEXT, Major TEXT, Credits INTEGER, GPA REAL, Debt INTEGER)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS LECTURER (LecturerID TEXT PRIMARY KEY, Fullname TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS STUDENT (StudentID TEXT PRIMARY KEY, CurriculumID TEXT, Fullname TEXT, DateOfBirth DATE, Major TEXT, Credits INTEGER, GPA REAL, Debt INTEGER)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS LECTURER (LecturerID TEXT PRIMARY KEY, Fullname TEXT, Department TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS ADMIN (AdminID TEXT PRIMARY KEY, Fullname TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS SUBJECT (SubjectID TEXT PRIMARY KEY, SubjectName TEXT, Credits INTEGER, Type TEXT)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS COURSE_CLASS (ClassID TEXT PRIMARY KEY, SubjectID TEXT, LecturerID TEXT, Schedule TEXT, MaxCapacity INTEGER, CurrentEnrollment INTEGER DEFAULT 0, Status INTEGER)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS COURSE_CLASS (ClassID TEXT PRIMARY KEY, SubjectID TEXT, LecturerID TEXT, Semester TEXT, Schedule TEXT, MaxCapacity INTEGER, CurrentEnrollment INTEGER DEFAULT 0, Status INTEGER)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS REGISTRATION_FORM (FormID TEXT PRIMARY KEY, StudentID TEXT, ClassID TEXT, RegDate DATE)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS ACADEMIC_RESULT (FormID TEXT PRIMARY KEY, ProcessScore REAL, FinalExamScore REAL, FinalScore REAL, LetterGrade TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS GRADUATION_APP (AppID TEXT PRIMARY KEY, StudentID TEXT, Status TEXT)''')
 
     cursor.execute("INSERT OR IGNORE INTO ACCOUNT VALUES ('STU001', 'SV01', '123456', 'Student', 'Active')")
-    cursor.execute("INSERT OR IGNORE INTO STUDENT VALUES ('SV01', 'Nguyen Minh Khoa', 'Công nghệ Thông tin', 118, 3.10, 5000000)")
+    cursor.execute("INSERT OR IGNORE INTO STUDENT VALUES ('SV01', 'CUR-IT2023', 'Nguyen Minh Khoa', '2004-06-23', 'Công nghệ Thông tin', 118, 3.10, 5000000)")
     cursor.execute("INSERT OR IGNORE INTO ACCOUNT VALUES ('LEC001', 'GV01', '123456', 'Lecturer', 'Active')")
-    cursor.execute("INSERT OR IGNORE INTO LECTURER VALUES ('GV01', 'Dr. Tran Van Hoang')")
+    cursor.execute("INSERT OR IGNORE INTO LECTURER VALUES ('GV01', 'Dr. Tran Van Hoang', 'Khoa Công nghệ Thông tin')")
     cursor.execute("INSERT OR IGNORE INTO ACCOUNT VALUES ('ADM001', 'AD01', '123456', 'Admin', 'Active')")
     cursor.execute("INSERT OR IGNORE INTO ADMIN VALUES ('AD01', 'Quản trị viên Hệ thống')")
     
     subjects = [('IT001', 'Cơ sở Dữ liệu', 3, 'Bắt buộc'), ('IT002', 'Lập trình Python', 4, 'Bắt buộc'), ('IT003', 'Mạng Máy Tính', 3, 'Tự chọn')]
     for s in subjects: cursor.execute("INSERT OR IGNORE INTO SUBJECT VALUES (?, ?, ?, ?)", s)
-    classes = [('IT001-A', 'IT001', 'GV01', 'T2 (08:00-10:30) - Phòng A301', 40, 0, 0), ('IT002-B', 'IT002', 'GV01', 'T4 (13:00-15:30) - Phòng B205', 40, 0, 0)]
+    classes = [('IT001-A', 'IT001', 'GV01', 'HK1-2024', 'T2 (08:00-10:30) - Phòng A301', 40, 0, 0), ('IT002-B', 'IT002', 'GV01', 'HK1-2024' 'T4 (13:00-15:30) - Phòng B205', 40, 0, 0)]
     for c in classes: cursor.execute("INSERT OR IGNORE INTO COURSE_CLASS VALUES (?, ?, ?, ?, ?, ?, ?)", c)
     conn.commit()
     conn.close()
@@ -36,10 +36,23 @@ class Person:
         self.id, self.fullname = id_val, fullname
 
 class Student(Person):
-    def __init__(self, id_val, fullname, major, credits, gpa, debt):
+    def __init__(self, id_val, fullname, major, curriculum_id, date_of_birth, credits, gpa, debt):
         super().__init__(id_val, fullname)
-        self.major, self.credits, self.gpa, self.debt = major, credits, gpa, debt
+        self.major, self.credits, self.gpa, self.debt, self.curriculum_id, self.date_of_birth = major, credits, gpa, debt, curriculum_id, date_of_birth 
 
+class Lecturer(Person):
+    def __init__(self, id_val, fullname, department):
+        super().__init__(id_val, fullname)
+        self.department = department
+
+class Admin(Person):
+    def __init__(self, id_val, fullname):
+        super().__init__(id_val, fullname)
+
+class CourseClass:
+    def __init__(self, class_id, subject_id, lecturer_id, semester, schedule, max_capacity, current_enrollment=0, status=0):
+        self.class_id, self.subject_id, self.lecturer_id, self.semester, self.schedule, self.max_capacity, self.current_enrollment, self.status = class_id, subject_id, lecturer_id, semester, schedule, max_capacity, current_enrollment, status
+    
 class AuthManager:
     @staticmethod
     def login(username, password, expected_role):
@@ -55,9 +68,24 @@ class AuthManager:
         if expected_role == 'Student':
             cursor.execute("SELECT * FROM STUDENT WHERE StudentID = ?", (owner_id,))
             data = cursor.fetchone()
-            user_obj = Student(owner_id, data['Fullname'], data['Major'], data['Credits'], data['GPA'], data['Debt'])
+            user_obj = Student(
+                owner_id,
+                data['Fullname'],
+                data['CurriculumID'],
+                data['DateOfBirth'],
+                data['Major'],
+                data['Credits'],
+                data['GPA'],
+                data['Debt']
+            )
+        elif expected_role == 'Lecturer':
+            cursor.execute("SELECT * FROM LECTURER WHERE LecturerID = ?", (owner_id,))
+            data = cursor.fetchone()
+            user_obj = Lecturer(owner_id, data['Fullname'], data['Department'])
         else:
-            user_obj = Person(owner_id, "Giảng viên" if expected_role == 'Lecturer' else "Quản trị viên") 
+            cursor.execute("SELECT * FROM ADMIN WHERE AdminID = ?", (owner_id,))
+            data = cursor.fetchone()
+            user_obj = Admin(owner_id, data['Fullname'])
         conn.close()
         return {"status": "success", "role": expected_role, "user_obj": user_obj}
 
