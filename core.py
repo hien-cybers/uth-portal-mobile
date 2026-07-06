@@ -18,16 +18,23 @@ def initialize_database():
     cursor.execute('''CREATE TABLE IF NOT EXISTS GRADUATION_APP (AppID TEXT PRIMARY KEY, StudentID TEXT, Status TEXT)''')
 
     cursor.execute("INSERT OR IGNORE INTO ACCOUNT VALUES ('STU001', 'SV01', '123456', 'Student', 'Active')")
-    cursor.execute("INSERT OR IGNORE INTO STUDENT VALUES ('SV01', 'CUR-IT2023', 'Nguyen Minh Khoa', '2004-06-23', 'Công nghệ Thông tin', 118, 3.10, 5000000)")
+    cursor.execute("INSERT OR IGNORE INTO STUDENT (StudentID, Fullname, Major, Credits, GPA, Debt) VALUES ('SV01', 'Nguyen Minh Khoa', 'Công nghệ Thông tin', 118, 3.10, 5000000)")
+    
     cursor.execute("INSERT OR IGNORE INTO ACCOUNT VALUES ('LEC001', 'GV01', '123456', 'Lecturer', 'Active')")
     cursor.execute("INSERT OR IGNORE INTO LECTURER VALUES ('GV01', 'Dr. Tran Van Hoang', 'Khoa Công nghệ Thông tin')")
+    
     cursor.execute("INSERT OR IGNORE INTO ACCOUNT VALUES ('ADM001', 'AD01', '123456', 'Admin', 'Active')")
     cursor.execute("INSERT OR IGNORE INTO ADMIN VALUES ('AD01', 'Quản trị viên Hệ thống')")
     
     subjects = [('IT001', 'Cơ sở Dữ liệu', 3, 'Bắt buộc'), ('IT002', 'Lập trình Python', 4, 'Bắt buộc'), ('IT003', 'Mạng Máy Tính', 3, 'Tự chọn')]
     for s in subjects: cursor.execute("INSERT OR IGNORE INTO SUBJECT VALUES (?, ?, ?, ?)", s)
-    classes = [('IT001-A', 'IT001', 'GV01', 'HK1-2024', 'T2 (08:00-10:30) - Phòng A301', 40, 0, 0), ('IT002-B', 'IT002', 'GV01', 'HK1-2024' 'T4 (13:00-15:30) - Phòng B205', 40, 0, 0)]
-    for c in classes: cursor.execute("INSERT OR IGNORE INTO COURSE_CLASS VALUES (?, ?, ?, ?, ?, ?, ?)", c)
+    
+    classes = [
+        ('IT001-A', 'IT001', 'GV01', 'HK1-2024', 'T2 (08:00-10:30) - Phòng A301', 40, 0, 0), 
+        ('IT002-B', 'IT002', 'GV01', 'HK1-2024', 'T4 (13:00-15:30) - Phòng B205', 40, 0, 0)
+    ]
+    for c in classes: cursor.execute("INSERT OR IGNORE INTO COURSE_CLASS VALUES (?, ?, ?, ?, ?, ?, ?, ?)", c)
+    
     conn.commit()
     conn.close()
 
@@ -71,9 +78,9 @@ class AuthManager:
             user_obj = Student(
                 owner_id,
                 data['Fullname'],
-                data['CurriculumID'],
+                data['Major'],          
+                data['CurriculumID'],   
                 data['DateOfBirth'],
-                data['Major'],
                 data['Credits'],
                 data['GPA'],
                 data['Debt']
@@ -110,6 +117,7 @@ class CoreManager:
             return True, "Thành công!"
         except Exception as e: return False, f"Lỗi: {e}"
         finally: conn.close()
+
 class PhoneScreen(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent, bg="black")

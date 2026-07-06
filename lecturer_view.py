@@ -68,7 +68,7 @@ class LecturerDashboard(BaseDashboard):
         students = CoreManager.get_query("SELECT r.FormID, s.Fullname FROM REGISTRATION_FORM r JOIN STUDENT s ON r.StudentID = s.StudentID WHERE r.ClassID = ?", (cid,))
         scroll = self.create_scroll_canvas()
         
-        for s in students: 
+        for s in students:
             score_data = CoreManager.get_query("SELECT FinalScore FROM ACADEMIC_RESULT WHERE FormID = ?", (s['FormID'],))
             score_display = f"Điểm: {score_data[0]['FinalScore']}" if score_data else "Chưa có điểm"
             

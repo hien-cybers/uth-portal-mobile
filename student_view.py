@@ -114,8 +114,6 @@ class StudentDashboard(BaseDashboard):
         
         deadline_str = "2024-01-01 00:00:00" 
         deadline = datetime.strptime(deadline_str, "%Y-%m-%d %H:%M:%S")
-        
-        # 1. Kiểm tra xem đã qua hạn chót hủy môn chưa
         if datetime.now() > deadline:
             messagebox.showwarning(
                 "Đã đóng cổng", 
@@ -131,7 +129,26 @@ class StudentDashboard(BaseDashboard):
             self.view_cancel()
 
     def pay_tuition(self):
-        CoreManager.execute_query("UPDATE STUDENT SET Debt = 0 WHERE StudentID = ?", (self.user_obj.id,))
-        self.user_obj.debt = 0
-        messagebox.showinfo("OK", "Đã thanh toán học phí!")
-        self.view_tuition()
+
+        popup = tk.Toplevel(self.screen)
+        popup.title("Phương thức thanh toán")
+        popup.geometry("350x250")
+        popup.config(bg=AppTheme.BG_APP)
+        popup.grab_set()
+
+        tk.Label(popup, text="Chọn phương thức thanh toán", font=AppTheme.TITLE_M, bg=AppTheme.BG_APP, fg=AppTheme.TEXT_MAIN).pack(pady=(20, 15))
+
+        def process_direct_payment():
+            CoreManager.execute_query("UPDATE STUDENT SET Debt = 0 WHERE StudentID = ?", (self.user_obj.id,))
+            self.user_obj.debt = 0
+            messagebox.showinfo("Thành công", "Đã thanh toán học phí thành công!")
+            popup.destroy()
+            self.view_tuition()
+        def process_coming_soon():
+            messagebox.showinfo("Thông báo", "Cổng thanh toán QR/MoMo/Thẻ tín dụng đang trong quá trình phát triển và bảo trì.\nVui lòng sử dụng phương thức khác!")
+
+        btn_direct = tk.Button(popup, text="💵 Thanh toán trực tiếp (Khả dụng)", font=AppTheme.BTN_TEXT, bg=AppTheme.PRIMARY, fg=AppTheme.BG_CARD, bd=0, command=process_direct_payment)
+        btn_direct.pack(fill=tk.X, padx=20, pady=8, ipady=10)
+
+        btn_online = tk.Button(popup, text="💳 QR / MoMo / Thẻ (Đang phát triển)", font=AppTheme.BTN_TEXT, bg="#8E8E93", fg=AppTheme.BG_CARD, bd=0, command=process_coming_soon)
+        btn_online.pack(fill=tk.X, padx=20, pady=8, ipady=10)
