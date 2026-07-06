@@ -42,8 +42,6 @@ class AdminDashboard(BaseDashboard):
         
         for s in stus: 
             status = "Hoạt động" if s['Debt'] == 0 else f"Nợ: {s['Debt']}đ"
-            
-            # Vẽ thẻ sinh viên custom có 2 nút Sửa/Xóa
             card = tk.Frame(scroll, bg=AppTheme.BG_CARD, padx=15, pady=15, relief=tk.FLAT)
             card.pack(fill=tk.X, pady=5)
             
@@ -118,7 +116,6 @@ class AdminDashboard(BaseDashboard):
     def delete_student(self, sid):
         ans = messagebox.askyesno("Cảnh báo Nghiêm trọng", f"Bạn có chắc chắn muốn xóa TOÀN BỘ dữ liệu của {sid}?\nHành động này sẽ xóa cả tài khoản, lịch học và bảng điểm của sinh viên này!")
         if ans:
-            # Xóa sạch sẽ từ gốc đến ngọn để không bị lỗi khóa ngoại (Foreign Key)
             CoreManager.execute_query("DELETE FROM ACCOUNT WHERE OwnerID = ?", (sid,))
             CoreManager.execute_query("DELETE FROM REGISTRATION_FORM WHERE StudentID = ?", (sid,))
             CoreManager.execute_query("DELETE FROM GRADUATION_APP WHERE StudentID = ?", (sid,))
