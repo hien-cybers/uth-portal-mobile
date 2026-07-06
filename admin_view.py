@@ -39,9 +39,26 @@ class AdminDashboard(BaseDashboard):
         
         stus = CoreManager.get_query("SELECT StudentID, Fullname, Major, Credits, GPA, Debt FROM STUDENT")
         scroll = self.create_scroll_canvas()
+        
         for s in stus: 
-            status = "Hoạt động" if s['Debt'] == 0 else "Đình chỉ"
-            self.create_card(scroll, s['Fullname'], f"Mã số: {s['StudentID']} | {status}", f"GPA: {s['GPA']} | Tín chỉ: {s['Credits']}")
+            status = "Hoạt động" if s['Debt'] == 0 else f"Nợ: {s['Debt']}đ"
+            
+            # Vẽ thẻ sinh viên custom có 2 nút Sửa/Xóa
+            card = tk.Frame(scroll, bg=AppTheme.BG_CARD, padx=15, pady=15, relief=tk.FLAT)
+            card.pack(fill=tk.X, pady=5)
+            
+            info_frame = tk.Frame(card, bg=AppTheme.BG_CARD)
+            info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            
+            tk.Label(info_frame, text=s['Fullname'], font=AppTheme.TITLE_M, bg=AppTheme.BG_CARD, fg=AppTheme.TEXT_MAIN).pack(anchor="w")
+            tk.Label(info_frame, text=f"Mã số: {s['StudentID']} | {status}", font=AppTheme.BODY_M, bg=AppTheme.BG_CARD, fg=AppTheme.TEXT_MUTED).pack(anchor="w")
+            tk.Label(info_frame, text=f"GPA: {s['GPA']} | Tín chỉ: {s['Credits']}", font=AppTheme.BODY_M, bg=AppTheme.BG_CARD, fg=AppTheme.TEXT_MUTED).pack(anchor="w")
+            
+            btn_frame = tk.Frame(card, bg=AppTheme.BG_CARD)
+            btn_frame.pack(side=tk.RIGHT)
+            
+            tk.Button(btn_frame, text="Sửa", bg=AppTheme.WARNING, fg=AppTheme.BG_CARD, font=AppTheme.BTN_TEXT, bd=0, command=lambda sid=s['StudentID']: self.form_edit_student(sid)).pack(side=tk.LEFT, padx=5, ipady=5, ipadx=15)
+            tk.Button(btn_frame, text="Xóa", bg=AppTheme.DANGER, fg=AppTheme.BG_CARD, font=AppTheme.BTN_TEXT, bd=0, command=lambda sid=s['StudentID']: self.delete_student(sid)).pack(side=tk.LEFT, padx=5, ipady=5, ipadx=15)
 
     def form_add_student(self):
         self.set_subpage("Thêm Sinh viên Mới")
@@ -69,6 +86,45 @@ class AdminDashboard(BaseDashboard):
             
         tk.Button(self.main_content, text="Lưu & Cấp Tài khoản", bg=AppTheme.PRIMARY, fg=AppTheme.BG_CARD, font=AppTheme.BTN_TEXT, bd=0, command=save).pack(fill=tk.X, pady=20, ipady=12)
 
+    def form_edit_student(self, sid):
+        self.set_subpage(f"Sửa Hồ Sơ: {sid}")
+        stu = CoreManager.get_query("SELECT * FROM STUDENT WHERE StudentID = ?", (sid,))[0]
+        
+        scroll = self.create_scroll_canvas()
+        
+        def make_input(label_txt, default_val):
+            tk.Label(scroll, text=label_txt, bg=AppTheme.BG_APP, font=AppTheme.BODY_L, fg=AppTheme.TEXT_MAIN).pack(anchor="w", pady=(10,0))
+            entry = tk.Entry(scroll, font=AppTheme.TITLE_M, bd=0, highlightthickness=1)
+            entry.pack(fill=tk.X, pady=5, ipady=8)
+            entry.insert(0, str(default_val))
+            return entry
+
+        e_name = make_input("Họ và Tên:", stu['Fullname'])
+        e_major = make_input("Chuyên ngành:", stu['Major'])
+        e_debt = make_input("Nợ học phí (VNĐ):", stu['Debt'])
+
+        def save_edit():
+            name, major, debt = e_name.get().strip(), e_major.get().strip(), e_debt.get().strip()
+            if not name or not major or not debt.isdigit():
+                messagebox.showerror("Lỗi", "Vui lòng nhập đầy đủ thông tin hợp lệ (Nợ phải là số)!")
+                return
+            
+            CoreManager.execute_query("UPDATE STUDENT SET Fullname = ?, Major = ?, Debt = ? WHERE StudentID = ?", (name, major, int(debt), sid))
+            messagebox.showinfo("Thành công", f"Đã cập nhật hồ sơ sinh viên {sid}!")
+            self.view_students()
+
+        tk.Button(scroll, text="Lưu Cập Nhật", bg=AppTheme.SUCCESS, fg=AppTheme.BG_CARD, font=AppTheme.BTN_TEXT, bd=0, command=save_edit).pack(fill=tk.X, pady=20, ipady=12)
+
+    def delete_student(self, sid):
+        ans = messagebox.askyesno("Cảnh báo Nghiêm trọng", f"Bạn có chắc chắn muốn xóa TOÀN BỘ dữ liệu của {sid}?\nHành động này sẽ xóa cả tài khoản, lịch học và bảng điểm của sinh viên này!")
+        if ans:
+            # Xóa sạch sẽ từ gốc đến ngọn để không bị lỗi khóa ngoại (Foreign Key)
+            CoreManager.execute_query("DELETE FROM ACCOUNT WHERE OwnerID = ?", (sid,))
+            CoreManager.execute_query("DELETE FROM REGISTRATION_FORM WHERE StudentID = ?", (sid,))
+            CoreManager.execute_query("DELETE FROM GRADUATION_APP WHERE StudentID = ?", (sid,))
+            CoreManager.execute_query("DELETE FROM STUDENT WHERE StudentID = ?", (sid,))
+            messagebox.showinfo("Thành công", f"Đã xóa hoàn toàn sinh viên {sid} khỏi hệ thống.")
+            self.view_students()
     def view_subjects(self):
         self.set_subpage("Khung CTĐT")
         subs = CoreManager.get_query("SELECT * FROM SUBJECT")
