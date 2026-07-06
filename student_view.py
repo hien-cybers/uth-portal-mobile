@@ -58,6 +58,7 @@ class StudentDashboard(BaseDashboard):
             
             tk.Label(frm, text=f"🕒 {c['Schedule']}", font=AppTheme.BODY_M, fg=AppTheme.PRIMARY, bg=AppTheme.BG_CARD).pack(anchor="w", pady=(8,2))
             tk.Label(frm, text=f"👨‍🏫 Giảng viên: {c['Lecturer']}", font=AppTheme.BODY_M, fg=AppTheme.TEXT_MUTED, bg=AppTheme.BG_CARD).pack(anchor="w")
+
     def view_grades(self):
         self.set_subpage("Bảng điểm")
         grades = CoreManager.get_query("SELECT s.SubjectName, a.FinalScore, a.LetterGrade FROM ACADEMIC_RESULT a JOIN REGISTRATION_FORM r ON a.FormID = r.FormID JOIN COURSE_CLASS c ON r.ClassID = c.ClassID JOIN SUBJECT s ON c.SubjectID = s.SubjectID WHERE r.StudentID = ?", (self.user_obj.id,))
@@ -109,11 +110,28 @@ class StudentDashboard(BaseDashboard):
             self.view_registration()
 
     def process_cancel(self, fid, cid):
-        CoreManager.execute_query("DELETE FROM REGISTRATION_FORM WHERE FormID = ?", (fid,))
-        CoreManager.execute_query("UPDATE COURSE_CLASS SET CurrentEnrollment = CurrentEnrollment - 1 WHERE ClassID = ?", (cid,))
-        messagebox.showinfo("OK", "Đã hủy lớp!"); self.view_cancel()
+        from datetime import datetime
+        
+        deadline_str = "2024-01-01 00:00:00" 
+        deadline = datetime.strptime(deadline_str, "%Y-%m-%d %H:%M:%S")
+        
+        # 1. Kiểm tra xem đã qua hạn chót hủy môn chưa
+        if datetime.now() > deadline:
+            messagebox.showwarning(
+                "Đã đóng cổng", 
+                "Thời gian hủy học phần đã đóng!\nBạn không thể hủy lớp học này nữa."
+            )
+            return
+        
+        ans = messagebox.askyesno("Xác nhận", f"Bạn có chắc chắn muốn hủy học phần lớp {cid}?")
+        if ans:
+            CoreManager.execute_query("DELETE FROM REGISTRATION_FORM WHERE FormID = ?", (fid,))
+            CoreManager.execute_query("UPDATE COURSE_CLASS SET CurrentEnrollment = CurrentEnrollment - 1 WHERE ClassID = ?", (cid,))
+            messagebox.showinfo("Thành công", "Đã hủy lớp thành công!")
+            self.view_cancel()
 
     def pay_tuition(self):
         CoreManager.execute_query("UPDATE STUDENT SET Debt = 0 WHERE StudentID = ?", (self.user_obj.id,))
         self.user_obj.debt = 0
-        messagebox.showinfo("OK", "Đã thanh toán học phí!"); self.view_tuition()
+        messagebox.showinfo("OK", "Đã thanh toán học phí!")
+        self.view_tuition()
