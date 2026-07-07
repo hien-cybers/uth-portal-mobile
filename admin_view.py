@@ -163,11 +163,15 @@ class AdminDashboard(BaseDashboard):
                 messagebox.showerror("Lỗi", "Vui lòng nhập đầy đủ thông tin!")
                 return
             try:
-                CoreManager.execute_query("INSERT INTO COURSE_CLASS (ClassID, SubjectID, LecturerID, Schedule, MaxCapacity, CurrentEnrollment, Status) VALUES (?, ?, ?, ?, ?, 0, 0)", (cid, sid, lid, sch, int(cap)))
-                messagebox.showinfo("Thành công", "Đã mở lớp học mới!")
-                self.view_classes()
-            except Exception as e:
-                messagebox.showerror("Lỗi CSDL", "Vui lòng kiểm tra lại. Có thể Mã lớp đã tồn tại!")
+                result = CoreManager.execute_query("INSERT INTO COURSE_CLASS (ClassID, SubjectID, LecturerID, Schedule, MaxCapacity, CurrentEnrollment, Status) VALUES (?, ?, ?, ?, ?, 0, 0)", (cid, sid, lid, sch, int(cap)))
+            except ValueError:
+                messagebox.showerror("Lỗi", "Sĩ số tối đa phải là số hợp lệ!")
+                return
+            if not result[0]:
+                messagebox.showerror("Lỗi CSDL", result[1])
+                return
+            messagebox.showinfo("Thành công", "Đã mở lớp học mới!")
+            self.view_classes()
                 
         tk.Button(scroll, text="Lưu Lớp Học", bg=AppTheme.PRIMARY, fg=AppTheme.BG_CARD, font=AppTheme.BTN_TEXT, bd=0, command=save).pack(fill=tk.X, pady=20, ipady=12)
 
