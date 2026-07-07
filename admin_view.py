@@ -25,9 +25,42 @@ class AdminDashboard(BaseDashboard):
         for a in accs: self.create_card(scroll, a['AccountID'], f"Role: {a['Role']}", f"Status: {a['Status']}", "Khóa" if a['Status']=='Active' else "Mở", lambda aid=a['AccountID'], st=a['Status']: self.toggle_acc(aid, st), AppTheme.DANGER if a['Status']=='Active' else AppTheme.SUCCESS)
 
     def toggle_acc(self, aid, st):
+        if aid == self.user_obj.id:
+            messagebox.showerror("Lỗi logic", "Bạn không thể tự khóa tài khoản đang đăng nhập của chính mình!")
+            return
+            
         new_st = 'Locked' if st == 'Active' else 'Active'
         CoreManager.execute_query("UPDATE ACCOUNT SET Status = ? WHERE AccountID = ?", (new_st, aid))
         self.view_accounts()
+
+    def toggle_class(self, cid, st):
+        if st == 0: 
+            cls_info = CoreManager.get_query("SELECT CurrentEnrollment FROM COURSE_CLASS WHERE ClassID = ?", (cid,))[0]
+            if cls_info['CurrentEnrollment'] > 0:
+                ans = messagebox.askyesno("Cảnh báo Nghiêm trọng", f"Lớp {cid} đang có {cls_info['CurrentEnrollment']} SV đăng ký.\nViệc khóa lớp sẽ HỦY TOÀN BỘ đăng ký. Tiếp tục?")
+                if not ans: return
+                forms = CoreManager.get_query("SELECT FormID FROM REGISTRATION_FORM WHERE ClassID = ?", (cid,))
+                for f in forms:
+                    CoreManager.execute_query("DELETE FROM ACADEMIC_RESULT WHERE FormID = ?", (f['FormID'],))
+                    
+                CoreManager.execute_query("DELETE FROM REGISTRATION_FORM WHERE ClassID = ?", (cid,))
+                CoreManager.execute_query("UPDATE COURSE_CLASS SET CurrentEnrollment = 0 WHERE ClassID = ?", (cid,))
+                
+        new_st = 1 if st == 0 else 0
+        CoreManager.execute_query("UPDATE COURSE_CLASS SET Status = ? WHERE ClassID = ?", (new_st, cid))
+        self.view_classes()
+
+    def approve_app(self, appid):
+        stu_id = CoreManager.get_query("SELECT StudentID FROM GRADUATION_APP WHERE AppID = ?", (appid,))[0]['StudentID']
+        stu = CoreManager.get_query("SELECT Credits, Debt FROM STUDENT WHERE StudentID = ?", (stu_id,))[0]
+        
+        if stu['Credits'] < 120 or stu['Debt'] > 0:
+            messagebox.showerror("Từ chối tự động", f"Sinh viên chưa đủ điều kiện!\n- Tín chỉ: {stu['Credits']}/120\n- Nợ: {stu['Debt']}đ")
+            return
+            
+        CoreManager.execute_query("UPDATE GRADUATION_APP SET Status = 'Approved' WHERE AppID = ?", (appid,))
+        messagebox.showinfo("OK", "Đã duyệt bằng tốt nghiệp!")
+        self.view_audit()
 
     def view_students(self):
         self.set_subpage("Quản lý Sinh viên")

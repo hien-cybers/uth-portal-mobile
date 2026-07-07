@@ -1,10 +1,12 @@
 version: '3.8'
 services:
   uth-portal:
-    build: .
+    build:
+      context: ..
+      dockerfile: docker_env/Dockerfile
     container_name: uth_portal_app
     environment:
       - DISPLAY=host.docker.internal:0.0
     volumes:
-      - ./uth_portal_final.db:/app/uth_portal_final.db
+      - ../uth_portal_final.db:/app/uth_portal_final.db
     network_mode: bridge

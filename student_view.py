@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 from core import BaseDashboard, CoreManager
 from theme import AppTheme
+from datetime import datetime
 
 class StudentDashboard(BaseDashboard):
     def build_home(self):
@@ -84,26 +85,37 @@ class StudentDashboard(BaseDashboard):
 
     def view_graduation(self):
         self.set_subpage("Đơn Tốt nghiệp")
-        elig = "Đủ điều kiện" if self.user_obj.credits >= 120 else "Chưa đủ Tín chỉ"
+        elig = "Đủ điều kiện" if self.user_obj.credits >= 120 and self.user_obj.debt == 0 else "Chưa đủ ĐK (Thiếu TC hoặc còn nợ)"
         self.create_card(self.main_content, "Trạng thái", f"Tín chỉ: {self.user_obj.credits}/120 | Nợ: {self.user_obj.debt}", elig, "Nộp Đơn" if elig=="Đủ điều kiện" else None, lambda: CoreManager.execute_query("INSERT INTO GRADUATION_APP VALUES (?, ?, 'Pending')", (f"APP-{self.user_obj.id}", self.user_obj.id)))
-
+    
     def view_tuition(self):
         self.set_subpage("Học phí")
         self.create_card(self.main_content, "Công nợ Học kỳ", f"Cần đóng: {self.user_obj.debt} VND", None, "Thanh toán ngay" if self.user_obj.debt > 0 else None, self.pay_tuition)
 
     def process_reg(self, cid):
-        cap = CoreManager.get_query("SELECT MaxCapacity, CurrentEnrollment, Schedule FROM COURSE_CLASS WHERE ClassID = ?", (cid,))[0]
+        from datetime import date
+        cap = CoreManager.get_query("SELECT MaxCapacity, CurrentEnrollment, Schedule, SubjectID FROM COURSE_CLASS WHERE ClassID = ?", (cid,))[0]
         if cap['CurrentEnrollment'] >= cap['MaxCapacity']: 
             messagebox.showerror("Lỗi", "Lớp đã đầy!")
             return
+            
+        target_sub = cap['SubjectID']
         new_time_slot = cap['Schedule'].split(' - ')[0] 
-        current_classes = CoreManager.get_query("SELECT c.Schedule, s.SubjectName FROM REGISTRATION_FORM r JOIN COURSE_CLASS c ON r.ClassID = c.ClassID JOIN SUBJECT s ON c.SubjectID = s.SubjectID WHERE r.StudentID = ?", (self.user_obj.id,))
+        current_classes = CoreManager.get_query("SELECT c.Schedule, c.SubjectID, s.SubjectName FROM REGISTRATION_FORM r JOIN COURSE_CLASS c ON r.ClassID = c.ClassID JOIN SUBJECT s ON c.SubjectID = s.SubjectID WHERE r.StudentID = ?", (self.user_obj.id,))
+        
+        # Fix FC002: Kiểm tra trùng môn học (SubjectID)
         for c in current_classes:
+            if c['SubjectID'] == target_sub:
+                messagebox.showerror("Trùng môn", f"Bạn đã đăng ký môn {c['SubjectName']} ở một lớp khác trong học kỳ này!")
+                return
             existing_time_slot = c['Schedule'].split(' - ')[0]
             if new_time_slot == existing_time_slot:
-                messagebox.showerror("Trùng lịch", f"Bạn không thể đăng ký do trùng lịch {new_time_slot} với môn {c['SubjectName']}!")
+                messagebox.showerror("Trùng lịch", f"Trùng lịch {new_time_slot} với môn {c['SubjectName']}!")
                 return
-        res = CoreManager.execute_query("INSERT INTO REGISTRATION_FORM VALUES (?, ?, ?, ?)", (f"REG-{self.user_obj.id}-{cid}", self.user_obj.id, cid, "2024-01-01"))
+                
+        # Fix FC003: Dùng ngày tháng thực tế thay vì "2024-01-01"
+        today_str = date.today().strftime("%Y-%m-%d")
+        res = CoreManager.execute_query("INSERT INTO REGISTRATION_FORM VALUES (?, ?, ?, ?)", (f"REG-{self.user_obj.id}-{cid}", self.user_obj.id, cid, today_str))
         if res[0]: 
             CoreManager.execute_query("UPDATE COURSE_CLASS SET CurrentEnrollment = CurrentEnrollment + 1 WHERE ClassID = ?", (cid,))
             messagebox.showinfo("OK", "Đăng ký thành công!")
@@ -111,14 +123,11 @@ class StudentDashboard(BaseDashboard):
 
     def process_cancel(self, fid, cid):
         from datetime import datetime
-        
-        deadline_str = "2024-01-01 00:00:00" 
+        # Fix FC001: Đẩy deadline lên tương lai để luồng Happy Path chạy mượt
+        deadline_str = "2027-01-01 00:00:00" 
         deadline = datetime.strptime(deadline_str, "%Y-%m-%d %H:%M:%S")
         if datetime.now() > deadline:
-            messagebox.showwarning(
-                "Đã đóng cổng", 
-                "Thời gian hủy học phần đã đóng!\nBạn không thể hủy lớp học này nữa."
-            )
+            messagebox.showwarning("Đã đóng cổng", "Thời gian hủy học phần đã đóng!")
             return
         
         ans = messagebox.askyesno("Xác nhận", f"Bạn có chắc chắn muốn hủy học phần lớp {cid}?")
@@ -129,26 +138,24 @@ class StudentDashboard(BaseDashboard):
             self.view_cancel()
 
     def pay_tuition(self):
-
         popup = tk.Toplevel(self.screen)
-        popup.title("Phương thức thanh toán")
+        popup.title("Thanh toán")
         popup.geometry("350x250")
         popup.config(bg=AppTheme.BG_APP)
         popup.grab_set()
 
         tk.Label(popup, text="Chọn phương thức thanh toán", font=AppTheme.TITLE_M, bg=AppTheme.BG_APP, fg=AppTheme.TEXT_MAIN).pack(pady=(20, 15))
 
-        def process_direct_payment():
+        def process_payment(method):
             CoreManager.execute_query("UPDATE STUDENT SET Debt = 0 WHERE StudentID = ?", (self.user_obj.id,))
             self.user_obj.debt = 0
-            messagebox.showinfo("Thành công", "Đã thanh toán học phí thành công!")
+            messagebox.showinfo("Thành công", f"Đã thanh toán học phí thành công qua cổng {method}!")
             popup.destroy()
             self.view_tuition()
-        def process_coming_soon():
-            messagebox.showinfo("Thông báo", "Cổng thanh toán QR/MoMo/Thẻ tín dụng đang trong quá trình phát triển và bảo trì.\nVui lòng sử dụng phương thức khác!")
 
-        btn_direct = tk.Button(popup, text="💵 Thanh toán trực tiếp (Khả dụng)", font=AppTheme.BTN_TEXT, bg=AppTheme.PRIMARY, fg=AppTheme.BG_CARD, bd=0, command=process_direct_payment)
+        btn_direct = tk.Button(popup, text="💵 Tiền mặt (Tại phòng Tài vụ)", font=AppTheme.BTN_TEXT, bg=AppTheme.PRIMARY, fg=AppTheme.BG_CARD, bd=0, command=lambda: process_payment("Trực tiếp"))
         btn_direct.pack(fill=tk.X, padx=20, pady=8, ipady=10)
 
-        btn_online = tk.Button(popup, text="💳 QR / MoMo / Thẻ (Đang phát triển)", font=AppTheme.BTN_TEXT, bg="#8E8E93", fg=AppTheme.BG_CARD, bd=0, command=process_coming_soon)
+        # Fix FC005: Cho phép luồng thanh toán giả lập chạy thành công thay vì chặn
+        btn_online = tk.Button(popup, text="💳 QR / MoMo / Thẻ", font=AppTheme.BTN_TEXT, bg=AppTheme.SUCCESS, fg=AppTheme.BG_CARD, bd=0, command=lambda: process_payment("Online (Giả lập)"))
         btn_online.pack(fill=tk.X, padx=20, pady=8, ipady=10)

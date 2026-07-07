@@ -63,7 +63,7 @@ class LecturerDashboard(BaseDashboard):
 
     def view_class_students(self, cid):
         self.set_subpage(f"SV Lớp {cid}")
-        tk.Button(self.main_content, text="⬇️ Xuất File Excel", bg=AppTheme.SUCCESS, fg=AppTheme.BG_CARD, font=AppTheme.BTN_TEXT, bd=0, command=lambda: self.export_to_excel(cid, cid)).pack(fill=tk.X, pady=(0, 10), ipady=8)
+        tk.Button(self.main_content, text="⬇️ Xuất Bảng Điểm", bg=AppTheme.SUCCESS, fg=AppTheme.BG_CARD, font=AppTheme.BTN_TEXT, bd=0, command=lambda: self.export_grades(cid)).pack(fill=tk.X, pady=(0, 10), ipady=8)
         
         students = CoreManager.get_query("SELECT r.FormID, s.Fullname FROM REGISTRATION_FORM r JOIN STUDENT s ON r.StudentID = s.StudentID WHERE r.ClassID = ?", (cid,))
         scroll = self.create_scroll_canvas()
@@ -71,28 +71,54 @@ class LecturerDashboard(BaseDashboard):
         for s in students:
             score_data = CoreManager.get_query("SELECT FinalScore FROM ACADEMIC_RESULT WHERE FormID = ?", (s['FormID'],))
             score_display = f"Điểm: {score_data[0]['FinalScore']}" if score_data else "Chưa có điểm"
-            
             self.create_card(scroll, s['Fullname'], score_display, None, "Nhập Điểm", lambda fid=s['FormID']: self.enter_grade(fid, cid))
 
     def enter_grade(self, fid, cid):
-        score_input = simpledialog.askstring("Nhập điểm", "Nhập điểm môn học (từ 0 đến 10):")
-        
-        if score_input is not None:
+        popup = tk.Toplevel(self.screen)
+        popup.title("Nhập Điểm")
+        popup.geometry("300x250")
+        popup.config(bg=AppTheme.BG_APP)
+        popup.grab_set()
+
+        tk.Label(popup, text="Điểm Quá Trình (30%):", bg=AppTheme.BG_APP).pack(pady=(10, 0))
+        e_process = tk.Entry(popup)
+        e_process.pack(pady=5)
+
+        tk.Label(popup, text="Điểm Cuối Kỳ (70%):", bg=AppTheme.BG_APP).pack(pady=(10, 0))
+        e_final = tk.Entry(popup)
+        e_final.pack(pady=5)
+
+        def save():
             try:
-                score = float(score_input)
-                if score < 0 or score > 10:
-                    messagebox.showerror("Lỗi Logic", "Điểm không hợp lệ! Vui lòng nhập từ 0 đến 10.")
+                p_score, f_score = float(e_process.get()), float(e_final.get())
+                if not (0 <= p_score <= 10 and 0 <= f_score <= 10):
+                    messagebox.showerror("Lỗi", "Điểm phải từ 0-10")
                     return
-                if score >= 8.5: letter = 'A'
-                elif score >= 7.0: letter = 'B'
-                elif score >= 5.5: letter = 'C'
-                elif score >= 4.0: letter = 'D'
+                final = round(p_score * 0.3 + f_score * 0.7, 1)
+                if final >= 8.5: letter = 'A'
+                elif final >= 7.0: letter = 'B'
+                elif final >= 5.5: letter = 'C'
+                elif final >= 4.0: letter = 'D'
                 else: letter = 'F'
-                
-                # Lưu vào bảng ACADEMIC_RESULT
-                CoreManager.execute_query("INSERT OR REPLACE INTO ACADEMIC_RESULT (FormID, ProcessScore, FinalExamScore, FinalScore, LetterGrade) VALUES (?, ?, ?, ?, ?)", (fid, score, score, score, letter))
-                messagebox.showinfo("Thành công", f"Đã lưu điểm {score} ({letter}) thành công!")
-                
+
+                CoreManager.execute_query("INSERT OR REPLACE INTO ACADEMIC_RESULT (FormID, ProcessScore, FinalExamScore, FinalScore, LetterGrade) VALUES (?, ?, ?, ?, ?)", (fid, p_score, f_score, final, letter))
+                messagebox.showinfo("Thành công", f"Điểm tổng kết: {final} ({letter})")
+                popup.destroy()
                 self.view_class_students(cid)
             except ValueError:
-                messagebox.showerror("Lỗi Dữ Liệu", "Vui lòng nhập định dạng số nguyên hoặc số thập phân hợp lệ!")
+                messagebox.showerror("Lỗi", "Vui lòng nhập số hợp lệ")
+
+        tk.Button(popup, text="Lưu Điểm", command=save, bg=AppTheme.PRIMARY, fg="white", bd=0, font=AppTheme.BTN_TEXT).pack(pady=15, fill=tk.X, padx=20)
+
+    def export_grades(self, cid):
+        students = CoreManager.get_query("SELECT s.StudentID, s.Fullname, a.ProcessScore, a.FinalExamScore, a.FinalScore, a.LetterGrade FROM REGISTRATION_FORM r JOIN STUDENT s ON r.StudentID = s.StudentID LEFT JOIN ACADEMIC_RESULT a ON r.FormID = a.FormID WHERE r.ClassID = ?", (cid,))
+        if not students: return messagebox.showwarning("Trống", "Lớp chưa có sinh viên!")
+            
+        file_path = filedialog.asksaveasfilename(defaultextension=".csv", initialfile=f"BangDiem_{cid}.csv", filetypes=[("Excel/CSV Files", "*.csv")])
+        if file_path:
+            with open(file_path, mode='w', newline='', encoding='utf-8-sig') as f:
+                writer = csv.writer(f)
+                writer.writerow(["Mã Lớp", "Mã SV", "Họ Tên", "Điểm QT", "Điểm CK", "Tổng Kết", "Điểm Chữ"])
+                for s in students:
+                    writer.writerow([cid, s['StudentID'], s['Fullname'], s['ProcessScore'], s['FinalExamScore'], s['FinalScore'], s['LetterGrade']])
+            messagebox.showinfo("Thành công", "Đã xuất bảng điểm thành công!")
