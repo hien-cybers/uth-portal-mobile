@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import importlib
 import json
 import os
@@ -269,7 +270,80 @@ def run_one(
         )
 
 
-def write_reports(results: list[TestResult]) -> None:
+def markdown_cell(value: str) -> str:
+    return value.replace("|", "\\|").replace("\n", "<br>")
+
+
+def result_note(result: TestResult) -> str:
+    if result.status == "PASS":
+        return "Đã kiểm thử tự động (headless) trên code thực tế."
+    if result.status == "SKIPPED":
+        return "Test case chưa được tự động hóa."
+    if result.status == "FAIL":
+        return "Cần debug assertion/logic theo Actual Result và Error."
+    return "Cần debug lỗi runtime khi chạy test."
+
+
+def write_debug_report(
+    results: list[TestResult],
+    steps_by_id: dict[str, list[str]],
+    inputs_by_id: dict[str, list[str]],
+    expected_by_id: dict[str, str],
+) -> None:
+    headers = [
+        "Test Case ID",
+        "Function",
+        "Test Steps",
+        "Input Data",
+        "Expected Result",
+        "Actual Result (Kết quả thực tế)",
+        "Pass / Fail",
+        "Ghi chú",
+    ]
+
+    rows: list[list[str]] = []
+    for result in results:
+        actual = result.actual_result
+        if result.error:
+            actual = f"{actual}\n\n[Error]\n{result.error}"
+        rows.append([
+            result.id,
+            result.function,
+            "\n".join(steps_by_id.get(result.id, [])),
+            "\n".join(inputs_by_id.get(result.id, [])),
+            expected_by_id.get(result.id, ""),
+            actual,
+            result.status,
+            result_note(result),
+        ])
+
+    markdown_lines = [
+        "# Debug Test Report",
+        "",
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join(["---"] * len(headers)) + " |",
+    ]
+    for row in rows:
+        markdown_lines.append("| " + " | ".join(markdown_cell(cell) for cell in row) + " |")
+    (REPORT_DIR / "latest-debug-report.md").write_text("\n".join(markdown_lines) + "\n", encoding="utf-8")
+
+    with (REPORT_DIR / "latest-debug-report.tsv").open("w", encoding="utf-8-sig", newline="") as file:
+        writer = csv.writer(file, delimiter="\t", lineterminator="\n")
+        writer.writerow(headers)
+        writer.writerows(rows)
+
+    with (REPORT_DIR / "latest-debug-report.csv").open("w", encoding="utf-8-sig", newline="") as file:
+        writer = csv.writer(file, lineterminator="\n")
+        writer.writerow(headers)
+        writer.writerows(rows)
+
+
+def write_reports(
+    results: list[TestResult],
+    steps_by_id: dict[str, list[str]],
+    inputs_by_id: dict[str, list[str]],
+    expected_by_id: dict[str, str],
+) -> None:
     REPORT_DIR.mkdir(exist_ok=True)
     json_rows = [result.__dict__ for result in results]
     (REPORT_DIR / "latest-report.json").write_text(json.dumps(json_rows, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -326,6 +400,7 @@ def write_reports(results: list[TestResult]) -> None:
         elif result.status == "SKIPPED":
             ET.SubElement(case, "skipped", {"message": result.actual_result})
     ET.ElementTree(suite).write(REPORT_DIR / "junit-results.xml", encoding="utf-8", xml_declaration=True)
+    write_debug_report(results, steps_by_id, inputs_by_id, expected_by_id)
 
 
 def case_labels_for_tags(tags: list[str]) -> list[str]:
@@ -404,7 +479,7 @@ def main() -> int:
         )
         for item in tests
     ]
-    write_reports(results)
+    write_reports(results, steps_by_id, inputs_by_id, expected_by_id)
 
     for result in results:
         print(f"{result.id} [{result.status}] {result.function} ({result.duration:.3f}s)")

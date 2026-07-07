@@ -10,14 +10,15 @@ SEED_DATA_PATH = Path(__file__).with_name("seed_data.json")
 
 TABLE_COLUMNS: dict[str, tuple[str, ...]] = {
     "ACCOUNT": ("AccountID", "OwnerID", "Password", "Role", "Status"),
-    "STUDENT": ("StudentID", "Fullname", "Major", "Credits", "GPA", "Debt"),
-    "LECTURER": ("LecturerID", "Fullname"),
+    "STUDENT": ("StudentID", "CurriculumID", "Fullname", "DateOfBirth", "Major", "Credits", "GPA", "Debt"),
+    "LECTURER": ("LecturerID", "Fullname", "Department"),
     "ADMIN": ("AdminID", "Fullname"),
     "SUBJECT": ("SubjectID", "SubjectName", "Credits", "Type"),
     "COURSE_CLASS": (
         "ClassID",
         "SubjectID",
         "LecturerID",
+        "Semester",
         "Schedule",
         "MaxCapacity",
         "CurrentEnrollment",
@@ -43,8 +44,8 @@ def import_seed_data(
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = OFF")
     try:
-        seed_baseline(conn, data)
         clean_scenario_data(conn)
+        seed_baseline(conn, data)
         if with_scenarios:
             seed_scenarios(conn, data)
         conn.commit()
@@ -80,11 +81,12 @@ def insert_rows(conn: sqlite3.Connection, table: str, rows: list[dict[str, Any]]
 
 
 def clean_scenario_data(conn: sqlite3.Connection) -> None:
-    conn.execute("DELETE FROM ACADEMIC_RESULT WHERE FormID LIKE 'AUTO-%' OR FormID LIKE 'REG-SV01-%'")
-    conn.execute("DELETE FROM REGISTRATION_FORM WHERE FormID LIKE 'AUTO-%' OR FormID LIKE 'REG-SV01-%'")
-    conn.execute("DELETE FROM GRADUATION_APP WHERE AppID LIKE 'AUTO-%' OR AppID IN ('APP-SV01', 'APP-SV120')")
+    conn.execute("DELETE FROM ACADEMIC_RESULT WHERE FormID LIKE 'AUTO-%' OR FormID LIKE 'REG-SV01-%' OR FormID LIKE 'FC-%'")
+    conn.execute("DELETE FROM REGISTRATION_FORM WHERE FormID LIKE 'AUTO-%' OR FormID LIKE 'REG-SV01-%' OR FormID LIKE 'FC-%'")
+    conn.execute("DELETE FROM GRADUATION_APP WHERE AppID LIKE 'AUTO-%' OR AppID LIKE 'FC-%' OR AppID IN ('APP-SV01', 'APP-SV120')")
+    conn.execute("DELETE FROM COURSE_CLASS WHERE ClassID LIKE 'FC-%' OR ClassID IN ('IT001-B', 'IT004-C')")
     conn.execute("UPDATE COURSE_CLASS SET CurrentEnrollment = 0, Status = 0 WHERE ClassID IN ('IT001-A', 'IT002-B')")
-    conn.execute("UPDATE ACCOUNT SET Status = 'Active' WHERE AccountID IN ('STU001', 'STU120', 'LEC001', 'ADM001')")
+    conn.execute("UPDATE ACCOUNT SET Status = 'Active' WHERE AccountID IN ('STU001', 'STU120', 'LEC001', 'ADM001', 'ADM002')")
     conn.execute("UPDATE STUDENT SET Credits = 118, GPA = 3.10, Debt = 5000000 WHERE StudentID = 'SV01'")
     conn.execute("UPDATE STUDENT SET Credits = 120, GPA = 3.40, Debt = 0 WHERE StudentID = 'SV120'")
 

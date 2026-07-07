@@ -1,0 +1,194 @@
+{
+  "baseline": {
+    "ACCOUNT": [
+      {
+        "AccountID": "STU001",
+        "OwnerID": "SV01",
+        "Password": "123456",
+        "Role": "Student",
+        "Status": "Active"
+      },
+      {
+        "AccountID": "STU120",
+        "OwnerID": "SV120",
+        "Password": "123456",
+        "Role": "Student",
+        "Status": "Active"
+      },
+      {
+        "AccountID": "LEC001",
+        "OwnerID": "GV01",
+        "Password": "123456",
+        "Role": "Lecturer",
+        "Status": "Active"
+      },
+      {
+        "AccountID": "ADM001",
+        "OwnerID": "AD01",
+        "Password": "123456",
+        "Role": "Admin",
+        "Status": "Active"
+      },
+      {
+        "AccountID": "ADM002",
+        "OwnerID": "AD02",
+        "Password": "123456",
+        "Role": "Admin",
+        "Status": "Active"
+      }
+    ],
+    "STUDENT": [
+      {
+        "StudentID": "SV01",
+        "CurriculumID": "CUR-IT2024",
+        "Fullname": "Nguyen Minh Khoa",
+        "DateOfBirth": "2003-01-15",
+        "Major": "Cong nghe Thong tin",
+        "Credits": 118,
+        "GPA": 3.1,
+        "Debt": 5000000
+      },
+      {
+        "StudentID": "SV120",
+        "CurriculumID": "CUR-IT2024",
+        "Fullname": "Fail Case Eligible Debt Student",
+        "DateOfBirth": "2002-05-20",
+        "Major": "Cong nghe Thong tin",
+        "Credits": 120,
+        "GPA": 3.4,
+        "Debt": 5000000
+      }
+    ],
+    "LECTURER": [
+      {
+        "LecturerID": "GV01",
+        "Fullname": "Dr. Tran Van Hoang",
+        "Department": "Khoa Cong nghe Thong tin"
+      }
+    ],
+    "ADMIN": [
+      {
+        "AdminID": "AD01",
+        "Fullname": "Quan tri vien He thong"
+      },
+      {
+        "AdminID": "AD02",
+        "Fullname": "Backup Admin"
+      }
+    ],
+    "SUBJECT": [
+      {
+        "SubjectID": "IT001",
+        "SubjectName": "Co so Du lieu",
+        "Credits": 3,
+        "Type": "Bat buoc"
+      },
+      {
+        "SubjectID": "IT002",
+        "SubjectName": "Lap trinh Python",
+        "Credits": 4,
+        "Type": "Bat buoc"
+      },
+      {
+        "SubjectID": "IT003",
+        "SubjectName": "Mang May Tinh",
+        "Credits": 3,
+        "Type": "Tu chon"
+      }
+    ],
+    "COURSE_CLASS": [
+      {
+        "ClassID": "IT001-A",
+        "SubjectID": "IT001",
+        "LecturerID": "GV01",
+        "Semester": "HK1-2024",
+        "Schedule": "T2 (08:00-10:30) - Phong A301",
+        "MaxCapacity": 40,
+        "CurrentEnrollment": 1,
+        "Status": 0
+      },
+      {
+        "ClassID": "IT001-B",
+        "SubjectID": "IT001",
+        "LecturerID": "GV01",
+        "Semester": "HK1-2024",
+        "Schedule": "T5 (08:00-10:30) - Phong A302",
+        "MaxCapacity": 40,
+        "CurrentEnrollment": 0,
+        "Status": 0
+      },
+      {
+        "ClassID": "IT002-B",
+        "SubjectID": "IT002",
+        "LecturerID": "GV01",
+        "Semester": "HK1-2024",
+        "Schedule": "T4 (13:00-15:30) - Phong B205",
+        "MaxCapacity": 40,
+        "CurrentEnrollment": 0,
+        "Status": 0
+      },
+      {
+        "ClassID": "IT004-C",
+        "SubjectID": "IT003",
+        "LecturerID": "GV01",
+        "Semester": "HK1-2024",
+        "Schedule": "T6 (08:00-10:30) - Phong C101",
+        "MaxCapacity": 40,
+        "CurrentEnrollment": 0,
+        "Status": 0
+      }
+    ]
+  },
+  "scenarios": {
+    "REGISTRATION_FORM": [
+      {
+        "FormID": "FC-REG-SV01-IT001-A",
+        "StudentID": "SV01",
+        "ClassID": "IT001-A",
+        "RegDate": "2024-01-01"
+      }
+    ],
+    "ACADEMIC_RESULT": [
+      {
+        "FormID": "FC-REG-SV01-IT001-A",
+        "ProcessScore": 7.0,
+        "FinalExamScore": 9.0,
+        "FinalScore": 8.0,
+        "LetterGrade": "B"
+      }
+    ],
+    "GRADUATION_APP": [
+      {
+        "AppID": "FC-APP-SV01",
+        "StudentID": "SV01",
+        "Status": "Pending"
+      },
+      {
+        "AppID": "FC-APP-SV120-DEBT",
+        "StudentID": "SV120",
+        "Status": "Pending"
+      }
+    ]
+  },
+  "scenario_updates": [
+    {
+      "table": "COURSE_CLASS",
+      "set": {
+        "CurrentEnrollment": 1
+      },
+      "where": {
+        "ClassID": "IT001-A"
+      }
+    },
+    {
+      "table": "STUDENT",
+      "set": {
+        "Credits": 120,
+        "Debt": 5000000
+      },
+      "where": {
+        "StudentID": "SV120"
+      }
+    }
+  ]
+}
