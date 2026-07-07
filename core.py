@@ -17,11 +17,25 @@ def initialize_database():
     cursor.execute('''CREATE TABLE IF NOT EXISTS ACADEMIC_RESULT (FormID TEXT PRIMARY KEY, ProcessScore REAL, FinalExamScore REAL, FinalScore REAL, LetterGrade TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS GRADUATION_APP (AppID TEXT PRIMARY KEY, StudentID TEXT, Status TEXT)''')
 
+    def ensure_column(table, column, definition):
+        columns = {row[1] for row in cursor.execute(f"PRAGMA table_info({table})")}
+        if column not in columns:
+            try:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+            except sqlite3.OperationalError as exc:
+                if "duplicate column name" not in str(exc).lower():
+                    raise
+
+    ensure_column("STUDENT", "CurriculumID", "TEXT")
+    ensure_column("STUDENT", "DateOfBirth", "DATE")
+    ensure_column("LECTURER", "Department", "TEXT")
+    ensure_column("COURSE_CLASS", "Semester", "TEXT")
+
     cursor.execute("INSERT OR IGNORE INTO ACCOUNT VALUES ('STU001', 'SV01', '123456', 'Student', 'Active')")
     cursor.execute("INSERT OR IGNORE INTO STUDENT (StudentID, Fullname, Major, Credits, GPA, Debt) VALUES ('SV01', 'Nguyen Minh Khoa', 'Công nghệ Thông tin', 118, 3.10, 5000000)")
     
     cursor.execute("INSERT OR IGNORE INTO ACCOUNT VALUES ('LEC001', 'GV01', '123456', 'Lecturer', 'Active')")
-    cursor.execute("INSERT OR IGNORE INTO LECTURER VALUES ('GV01', 'Dr. Tran Van Hoang', 'Khoa Công nghệ Thông tin')")
+    cursor.execute("INSERT OR IGNORE INTO LECTURER (LecturerID, Fullname, Department) VALUES ('GV01', 'Dr. Tran Van Hoang', 'Khoa Công nghệ Thông tin')")
     
     cursor.execute("INSERT OR IGNORE INTO ACCOUNT VALUES ('ADM001', 'AD01', '123456', 'Admin', 'Active')")
     cursor.execute("INSERT OR IGNORE INTO ADMIN VALUES ('AD01', 'Quản trị viên Hệ thống')")
@@ -33,7 +47,11 @@ def initialize_database():
         ('IT001-A', 'IT001', 'GV01', 'HK1-2024', 'T2 (08:00-10:30) - Phòng A301', 40, 0, 0), 
         ('IT002-B', 'IT002', 'GV01', 'HK1-2024', 'T4 (13:00-15:30) - Phòng B205', 40, 0, 0)
     ]
-    for c in classes: cursor.execute("INSERT OR IGNORE INTO COURSE_CLASS VALUES (?, ?, ?, ?, ?, ?, ?, ?)", c)
+    for c in classes:
+        cursor.execute(
+            "INSERT OR IGNORE INTO COURSE_CLASS (ClassID, SubjectID, LecturerID, Semester, Schedule, MaxCapacity, CurrentEnrollment, Status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            c,
+        )
     
     conn.commit()
     conn.close()
