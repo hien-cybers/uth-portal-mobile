@@ -1,495 +1,466 @@
 from __future__ import annotations
 
+import csv
 import tkinter as tk
 from pathlib import Path
 
 from tests.helpers.ui_helper import UiAppHelper
-from tests.integration.test_portal_integration import testcase
 
 
-def _text_contains(texts: list[str], expected: str) -> bool:
+def _has(texts: list[str], expected: str) -> bool:
     return any(expected in text for text in texts)
 
 
-@testcase("TC001")
-def tc001_ui_open_app_creates_database(repo_root: Path) -> None:
-    with UiAppHelper(repo_root) as ui:
-        assert ui.db_path.exists(), "Opening MainApp should create uth_portal_final.db."
-        table_count = ui.scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'")
-        assert table_count >= 9, f"Expected initialized schema, got {table_count} tables."
+def _login(ui: UiAppHelper, role: str = "Student", username: str = "STU001", password: str = "123456") -> None:
+    ui.login(role, username, password)
 
 
-@testcase("TC002")
-def tc002_ui_start_button_opens_login_page(repo_root: Path) -> None:
-    with UiAppHelper(repo_root) as ui:
-        ui.step()
-        splash = ui.app.frames["SplashScreen"]
-        buttons = ui.buttons_under(splash)
-        assert buttons, "Splash screen should contain a start button."
-        ui.step()
-        buttons[-1].invoke()
-        ui.pump()
-        login_view = ui.app.frames["LoginView"]
-        assert login_view.winfo_ismapped(), "LoginView should be available after clicking start."
-        assert login_view.e_usr.get() == "STU001"
+def _register(ui: UiAppHelper, class_id: str, form_id: str | None = None, student_id: str = "SV01") -> None:
+    ui.execute(
+        "INSERT OR REPLACE INTO REGISTRATION_FORM VALUES (?, ?, ?, ?)",
+        (form_id or f"REG-{student_id}-{class_id}", student_id, class_id, "2026-07-07"),
+    )
+    ui.execute("UPDATE COURSE_CLASS SET CurrentEnrollment = CurrentEnrollment + 1 WHERE ClassID = ?", (class_id,))
 
 
-@testcase("TC003")
-def tc003_ui_login_student_success(repo_root: Path) -> None:
+def _add_class(
+    ui: UiAppHelper,
+    class_id: str,
+    subject_id: str = "IT003",
+    schedule: str = "T6 (08:00-10:30) - Phong C101",
+    capacity: int = 40,
+    enrollment: int = 0,
+    status: int = 0,
+) -> None:
+    ui.execute(
+        "INSERT OR REPLACE INTO COURSE_CLASS (ClassID, SubjectID, LecturerID, Schedule, MaxCapacity, CurrentEnrollment, Status) "
+        "VALUES (?, ?, 'GV01', ?, ?, ?, ?)",
+        (class_id, subject_id, schedule, capacity, enrollment, status),
+    )
+
+
+def tc01_ui_login(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
         ui.login("Student", "STU001", "123456", detailed=True)
         dashboard = ui.app.frames["StudentDashboard"]
-        assert dashboard.user_obj is not None, "Student dashboard did not receive logged-in user."
-        assert dashboard.user_obj.id == "SV01", dashboard.user_obj.id
+        assert dashboard.user_obj is not None
+        assert dashboard.user_obj.id == "SV01"
 
 
-@testcase("TC004")
-def tc004_ui_login_wrong_password_shows_error(repo_root: Path) -> None:
+def tc02_ui_login(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
-        login_view = ui.show_login()
+        login = ui.show_login()
+        login.switch_role("Student")
+        login.e_usr.delete(0, tk.END)
+        login.e_usr.insert(0, "STU001")
+        login.e_pwd.delete(0, tk.END)
+        login.e_pwd.insert(0, "wrongpass")
         ui.step()
-        login_view.switch_role("Student")
-        ui.step()
-        login_view.e_usr.delete(0, tk.END)
-        login_view.e_usr.insert(0, "STU001")
-        login_view.e_pwd.delete(0, tk.END)
-        login_view.e_pwd.insert(0, "wrong-password")
-        ui.step()
-        login_view.do_login()
+        login.do_login()
         ui.pump()
-        error_text = login_view.lbl_err.cget("text")
-        print(f"[ACTUAL] TC004 - Login error label: {error_text}", flush=True)
-        assert error_text, "Expected visible login error message."
+        assert "1/3" in login.lbl_err.cget("text")
 
 
-@testcase("TC005")
-def tc005_ui_login_wrong_role_shows_error(repo_root: Path) -> None:
+def tc03_ui_login(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
-        login_view = ui.show_login()
+        login = ui.show_login()
+        login.switch_role("Lecturer")
+        login.e_usr.delete(0, tk.END)
+        login.e_usr.insert(0, "STU001")
+        login.e_pwd.delete(0, tk.END)
+        login.e_pwd.insert(0, "123456")
         ui.step()
-        login_view.switch_role("Admin")
-        ui.step()
-        login_view.e_usr.delete(0, tk.END)
-        login_view.e_usr.insert(0, "STU001")
-        login_view.e_pwd.delete(0, tk.END)
-        login_view.e_pwd.insert(0, "123456")
-        ui.step()
-        login_view.do_login()
+        login.do_login()
         ui.pump()
-        error_text = login_view.lbl_err.cget("text")
-        print(f"[ACTUAL] TC005 - Login error label: {error_text}", flush=True)
-        assert error_text, "Expected wrong-role login error message."
+        assert login.lbl_err.cget("text")
 
 
-@testcase("TC006")
-def tc006_ui_locked_account_cannot_login(repo_root: Path) -> None:
+def tc04_ui_login(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
-        ui.login("Admin", "ADM001", "123456")
-        admin = ui.app.frames["AdminDashboard"]
-        ui.step()
-        admin.toggle_acc("STU001", "Active")
-        ui.pump()
-        ui.step()
+        login = ui.show_login()
+        login.switch_role("Student")
+        for _ in range(3):
+            login.e_usr.delete(0, tk.END)
+            login.e_usr.insert(0, "STU001")
+            login.e_pwd.delete(0, tk.END)
+            login.e_pwd.insert(0, "wrongpass")
+            ui.step()
+            login.do_login()
+            ui.pump()
+        assert ui.scalar("SELECT Status FROM ACCOUNT WHERE AccountID = 'STU001'") == "Locked"
+        assert "khóa" in login.lbl_err.cget("text").lower() or "khoa" in login.lbl_err.cget("text").lower()
+
+
+def tc05_ui_login(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        ui.execute("UPDATE ACCOUNT SET Status = 'Locked' WHERE AccountID = 'STU001'")
         ui.login("Student", "STU001", "123456")
-        login_view = ui.app.frames["LoginView"]
-        error_text = login_view.lbl_err.cget("text")
-        print(f"[ACTUAL] TC006 - Login error label: {error_text}", flush=True)
-        assert error_text, "Expected locked-account login error."
+        login = ui.app.frames["LoginView"]
+        assert login.lbl_err.cget("text")
+        assert ui.app.frames["StudentDashboard"].user_obj is None
 
 
-@testcase("TC007")
-def tc007_ui_student_profile_screen(repo_root: Path) -> None:
-    with UiAppHelper(repo_root) as ui:
-        ui.login("Student", "STU001", "123456")
-        dashboard = ui.app.frames["StudentDashboard"]
-        ui.step()
-        dashboard.view_profile()
-        ui.pump()
-        texts = ui.label_texts(dashboard.main_content)
-        assert _text_contains(texts, "SV01"), texts
-
-
-@testcase("TC008")
-def tc008_ui_student_curriculum_screen(repo_root: Path) -> None:
-    with UiAppHelper(repo_root) as ui:
-        ui.login("Student", "STU001", "123456")
-        dashboard = ui.app.frames["StudentDashboard"]
-        ui.step()
-        dashboard.view_curriculum()
-        ui.pump()
-        texts = ui.label_texts(dashboard.main_content)
-        assert _text_contains(texts, "IT001"), texts
-
-
-@testcase("TC009")
-def tc009_ui_student_timetable_empty_state(repo_root: Path) -> None:
-    with UiAppHelper(repo_root) as ui:
-        ui.login("Student", "STU001", "123456")
-        dashboard = ui.app.frames["StudentDashboard"]
-        ui.step()
-        dashboard.view_timetable()
-        ui.pump()
-        texts = ui.label_texts(dashboard.main_content)
-        assert _text_contains(texts, "Ch") or not ui.buttons_under(dashboard.main_content), texts
-
-
-@testcase("TC010")
-def tc010_ui_student_grades_empty_state(repo_root: Path) -> None:
-    with UiAppHelper(repo_root) as ui:
-        ui.login("Student", "STU001", "123456")
-        dashboard = ui.app.frames["StudentDashboard"]
-        ui.step()
-        dashboard.view_grades()
-        ui.pump()
-        texts = ui.label_texts(dashboard.main_content)
-        assert _text_contains(texts, "Ch") or not ui.buttons_under(dashboard.main_content), texts
-
-
-@testcase("TC011")
-def tc011_ui_student_registers_first_open_class(repo_root: Path) -> None:
-    with UiAppHelper(repo_root) as ui:
-        ui.login("Student", "STU001", "123456")
-        dashboard = ui.app.frames["StudentDashboard"]
-        ui.step()
-        dashboard.view_registration()
-        ui.pump()
-        buttons = ui.buttons_under(dashboard.main_content)
-        assert buttons, "Expected at least one registration button."
-        ui.step()
-        buttons[0].invoke()
-        ui.pump()
-        registered = ui.scalar("SELECT COUNT(*) FROM REGISTRATION_FORM WHERE StudentID = ?", ("SV01",))
-        assert registered == 1, f"Expected one registration form, got {registered}"
-
-
-@testcase("TC012")
-def tc012_ui_student_duplicate_registration_does_not_duplicate(repo_root: Path) -> None:
-    with UiAppHelper(repo_root) as ui:
-        ui.login("Student", "STU001", "123456")
-        dashboard = ui.app.frames["StudentDashboard"]
-        ui.step()
-        dashboard.process_reg("IT001-A")
-        ui.pump()
-        ui.step()
-        dashboard.process_reg("IT001-A")
-        ui.pump()
-        registered = ui.scalar("SELECT COUNT(*) FROM REGISTRATION_FORM WHERE StudentID = ? AND ClassID = ?", ("SV01", "IT001-A"))
-        assert registered == 1, f"Expected duplicate registration to stay at one row, got {registered}"
-
-
-@testcase("TC013")
-def tc013_ui_full_class_registration_shows_error(repo_root: Path) -> None:
-    with UiAppHelper(repo_root) as ui:
-        ui.login("Student", "STU001", "123456")
-        ui.step()
-        ui.scalar("SELECT COUNT(*) FROM COURSE_CLASS")
-        conn = __import__("sqlite3").connect(ui.db_path)
-        try:
-            conn.execute("UPDATE COURSE_CLASS SET CurrentEnrollment = MaxCapacity WHERE ClassID = 'IT001-A'")
-            conn.commit()
-        finally:
-            conn.close()
-        dashboard = ui.app.frames["StudentDashboard"]
-        ui.step()
-        dashboard.process_reg("IT001-A")
-        ui.pump()
-        assert any(kind == "showerror" for kind, _title, _msg in ui.messages), ui.messages
-
-
-@testcase("TC014")
-def tc014_ui_student_cancels_registered_class(repo_root: Path) -> None:
-    with UiAppHelper(repo_root) as ui:
-        ui.login("Student", "STU001", "123456")
-        dashboard = ui.app.frames["StudentDashboard"]
-        ui.step()
-        dashboard.process_reg("IT001-A")
-        ui.pump()
-        ui.step()
-        dashboard.view_cancel()
-        ui.pump()
-        button = ui.button_containing(dashboard.main_content, "H\u1ee7y")
-        ui.step()
-        button.invoke()
-        ui.pump()
-        registered = ui.scalar("SELECT COUNT(*) FROM REGISTRATION_FORM WHERE StudentID = ?", ("SV01",))
-        assert registered == 1, f"Expected closed cancellation window to keep one registration, got {registered}"
-        assert any(kind == "showwarning" for kind, _title, _msg in ui.messages), ui.messages
-
-
-@testcase("TC015")
-def tc015_ui_student_pays_tuition(repo_root: Path) -> None:
-    with UiAppHelper(repo_root) as ui:
-        ui.login("Student", "STU001", "123456")
-        dashboard = ui.app.frames["StudentDashboard"]
-        ui.step()
-        dashboard.view_tuition()
-        ui.pump()
-        button = ui.button_containing(dashboard.main_content, "Thanh")
-        ui.step()
-        button.invoke()
-        ui.pump()
-        direct_button = ui.top_level_button_containing("Kh\u1ea3")
-        ui.step()
-        direct_button.invoke()
-        ui.pump()
-        debt = ui.scalar("SELECT Debt FROM STUDENT WHERE StudentID = ?", ("SV01",))
-        assert debt == 0, f"Expected debt 0, got {debt}"
-
-
-@testcase("TC016")
-def tc016_ui_ineligible_student_has_no_graduation_submit_button(repo_root: Path) -> None:
-    with UiAppHelper(repo_root) as ui:
-        ui.login("Student", "STU001", "123456")
-        dashboard = ui.app.frames["StudentDashboard"]
-        ui.step()
-        dashboard.view_graduation()
-        ui.pump()
-        assert not ui.buttons_under(dashboard.main_content), "Ineligible student should not see submit button."
-
-
-@testcase("TC017")
-def tc017_ui_eligible_student_submits_graduation_application(repo_root: Path) -> None:
-    with UiAppHelper(repo_root) as ui:
-        conn = __import__("sqlite3").connect(ui.db_path)
-        try:
-            conn.execute("UPDATE STUDENT SET Credits = 120 WHERE StudentID = 'SV01'")
-            conn.commit()
-        finally:
-            conn.close()
-        ui.login("Student", "STU001", "123456")
-        dashboard = ui.app.frames["StudentDashboard"]
-        dashboard.user_obj.credits = 120
-        ui.step()
-        dashboard.view_graduation()
-        ui.pump()
-        buttons = ui.buttons_under(dashboard.main_content)
-        assert buttons, "Eligible student should see graduation submit button."
-        ui.step()
-        buttons[0].invoke()
-        ui.pump()
-        status = ui.scalar("SELECT Status FROM GRADUATION_APP WHERE StudentID = ?", ("SV01",))
-        assert status == "Pending", status
-
-
-@testcase("TC018")
-def tc018_ui_lecturer_schedule_screen(repo_root: Path) -> None:
+def tc06_ui_login(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
         ui.login("Lecturer", "LEC001", "123456")
         dashboard = ui.app.frames["LecturerDashboard"]
-        ui.step()
+        assert dashboard.user_obj is not None
+        assert dashboard.user_obj.id == "GV01"
+
+
+def tc07_ui_login(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        ui.login("Admin", "ADM001", "123456")
+        dashboard = ui.app.frames["AdminDashboard"]
+        assert dashboard.user_obj is not None
+        assert dashboard.user_obj.id == "AD01"
+
+
+def tc08_ui_student_profile(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _login(ui)
+        dashboard = ui.app.frames["StudentDashboard"]
+        dashboard.view_profile()
+        ui.pump()
+        texts = ui.label_texts(dashboard.main_content)
+        assert _has(texts, "Nguyen") and _has(texts, "SV01") and _has(texts, "Cong")
+
+
+def tc09_ui_student_curriculum(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _login(ui)
+        dashboard = ui.app.frames["StudentDashboard"]
+        dashboard.view_curriculum()
+        ui.pump()
+        texts = ui.label_texts(dashboard.main_content)
+        assert _has(texts, "IT001") and _has(texts, "3")
+
+
+def tc10_ui_student_timetable(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _register(ui, "IT001-A")
+        _login(ui)
+        dashboard = ui.app.frames["StudentDashboard"]
+        dashboard.view_timetable()
+        ui.pump()
+        texts = ui.label_texts(dashboard.main_content)
+        assert _has(texts, "Co so Du lieu") and _has(texts, "T2") and _has(texts, "Tran")
+
+
+def tc11_ui_student_transcript(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _register(ui, "IT001-A")
+        ui.execute("INSERT OR REPLACE INTO ACADEMIC_RESULT VALUES ('REG-SV01-IT001-A', 9, 9, 9, 'A')")
+        _login(ui)
+        dashboard = ui.app.frames["StudentDashboard"]
+        dashboard.view_grades()
+        ui.pump()
+        texts = ui.label_texts(dashboard.main_content)
+        assert _has(texts, "9") and _has(texts, "A")
+
+
+def tc12_ui_student_course_registration(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _login(ui)
+        dashboard = ui.app.frames["StudentDashboard"]
+        before = ui.scalar("SELECT CurrentEnrollment FROM COURSE_CLASS WHERE ClassID = 'IT001-A'")
+        dashboard.process_reg("IT001-A")
+        ui.pump()
+        assert ui.scalar("SELECT COUNT(*) FROM REGISTRATION_FORM WHERE StudentID = 'SV01' AND ClassID = 'IT001-A'") == 1
+        assert ui.scalar("SELECT CurrentEnrollment FROM COURSE_CLASS WHERE ClassID = 'IT001-A'") == before + 1
+
+
+def tc13_ui_student_course_registration(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _register(ui, "IT001-A")
+        _login(ui)
+        dashboard = ui.app.frames["StudentDashboard"]
+        dashboard.process_reg("IT002-B")
+        ui.pump()
+        assert ui.scalar("SELECT COUNT(*) FROM REGISTRATION_FORM WHERE StudentID = 'SV01'") == 2
+
+
+def tc14_ui_student_course_registration(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _add_class(ui, "FULLCLS", capacity=1, enrollment=1)
+        _login(ui)
+        dashboard = ui.app.frames["StudentDashboard"]
+        dashboard.process_reg("FULLCLS")
+        ui.pump()
+        assert ui.scalar("SELECT COUNT(*) FROM REGISTRATION_FORM WHERE ClassID = 'FULLCLS'") == 0
+        assert any(kind == "showerror" for kind, _title, _msg in ui.messages)
+
+
+def tc15_ui_student_course_registration(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _register(ui, "IT001-A")
+        _add_class(ui, "SAME-TIME", schedule="T2 (08:00-10:30) - Phong Z999")
+        _login(ui)
+        dashboard = ui.app.frames["StudentDashboard"]
+        dashboard.process_reg("SAME-TIME")
+        ui.pump()
+        assert ui.scalar("SELECT COUNT(*) FROM REGISTRATION_FORM WHERE ClassID = 'SAME-TIME'") == 0
+        assert any(kind == "showerror" for kind, _title, _msg in ui.messages)
+
+
+def tc16_ui_student_cancel_enrollment(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _register(ui, "IT001-A")
+        _login(ui)
+        dashboard = ui.app.frames["StudentDashboard"]
+        dashboard.process_cancel("REG-SV01-IT001-A", "IT001-A")
+        ui.pump()
+        assert ui.scalar("SELECT COUNT(*) FROM REGISTRATION_FORM WHERE FormID = 'REG-SV01-IT001-A'") == 0
+
+
+def tc17_ui_student_graduation(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _login(ui)
+        dashboard = ui.app.frames["StudentDashboard"]
+        dashboard.view_graduation()
+        ui.pump()
+        assert not ui.buttons_under(dashboard.main_content)
+
+
+def tc18_ui_student_tuition(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _login(ui)
+        dashboard = ui.app.frames["StudentDashboard"]
+        dashboard.view_tuition()
+        ui.pump()
+        ui.button_containing(dashboard.main_content, "Thanh").invoke()
+        ui.pump()
+        ui.top_level_button_containing("Kh").invoke()
+        ui.pump()
+        assert ui.scalar("SELECT Debt FROM STUDENT WHERE StudentID = 'SV01'") == 0
+
+
+def tc19_ui_student_tuition(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _login(ui)
+        dashboard = ui.app.frames["StudentDashboard"]
+        dashboard.view_tuition()
+        ui.pump()
+        ui.button_containing(dashboard.main_content, "Thanh").invoke()
+        ui.pump()
+        ui.top_level_button_containing("QR").invoke()
+        ui.pump()
+        assert ui.scalar("SELECT Debt FROM STUDENT WHERE StudentID = 'SV01'") == 5000000
+        assert any(kind == "showinfo" for kind, _title, _msg in ui.messages)
+
+
+def tc20_ui_lecturer_teaching_schedule(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _login(ui, "Lecturer", "LEC001", "123456")
+        dashboard = ui.app.frames["LecturerDashboard"]
         dashboard.view_schedule()
         ui.pump()
         texts = ui.label_texts(dashboard.main_content)
-        assert _text_contains(texts, "IT001-A"), texts
+        assert _has(texts, "IT001-A") and _has(texts, "T2")
 
 
-@testcase("TC019")
-def tc019_ui_lecturer_views_class_students(repo_root: Path) -> None:
+def tc21_ui_lecturer_student_list(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
-        ui.step()
-        conn = __import__("sqlite3").connect(ui.db_path)
-        try:
-            conn.execute("INSERT INTO REGISTRATION_FORM VALUES (?, ?, ?, ?)", ("REG-SV01-IT001-A", "SV01", "IT001-A", "2024-01-01"))
-            conn.commit()
-        finally:
-            conn.close()
-        ui.login("Lecturer", "LEC001", "123456")
-        lecturer = ui.app.frames["LecturerDashboard"]
-        ui.step()
-        lecturer.view_class_students("IT001-A")
+        _register(ui, "IT001-A")
+        _login(ui, "Lecturer", "LEC001", "123456")
+        dashboard = ui.app.frames["LecturerDashboard"]
+        dashboard.show_student_list("IT001-A", "Co so Du lieu")
         ui.pump()
-        texts = ui.label_texts(lecturer.main_content)
-        assert _text_contains(texts, "Nguyen") or _text_contains(texts, "Khoa"), texts
+        assert _has(ui.label_texts(dashboard.main_content), "Nguyen")
 
 
-@testcase("TC020")
-def tc020_ui_lecturer_grading_action_shows_message(repo_root: Path) -> None:
+def tc22_ui_lecturer_grade_entry(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
-        ui.step()
-        conn = __import__("sqlite3").connect(ui.db_path)
-        try:
-            conn.execute("INSERT INTO REGISTRATION_FORM VALUES (?, ?, ?, ?)", ("REG-SV01-IT001-A", "SV01", "IT001-A", "2024-01-01"))
-            conn.commit()
-        finally:
-            conn.close()
-        ui.login("Lecturer", "LEC001", "123456")
-        lecturer = ui.app.frames["LecturerDashboard"]
-        ui.step()
-        lecturer.view_class_students("IT001-A")
+        _register(ui, "IT001-A")
+        _login(ui, "Lecturer", "LEC001", "123456")
+        dashboard = ui.app.frames["LecturerDashboard"]
+        ui.set_dialog_response("9.0")
+        dashboard.enter_grade("REG-SV01-IT001-A", "IT001-A")
         ui.pump()
-        buttons = ui.buttons_under(lecturer.main_content)
-        assert buttons, "Expected grading input button."
-        ui.step()
-        buttons[0].invoke()
-        ui.pump()
-        assert any(kind == "showinfo" for kind, _title, _msg in ui.messages), ui.messages
+        assert ui.scalar("SELECT FinalScore FROM ACADEMIC_RESULT WHERE FormID = 'REG-SV01-IT001-A'") == 9.0
+        assert ui.scalar("SELECT LetterGrade FROM ACADEMIC_RESULT WHERE FormID = 'REG-SV01-IT001-A'") == "A"
 
 
-@testcase("TC021")
-def tc021_ui_admin_accounts_screen(repo_root: Path) -> None:
+def tc23_ui_lecturer_grade_entry(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
-        ui.login("Admin", "ADM001", "123456")
-        admin = ui.app.frames["AdminDashboard"]
-        ui.step()
-        admin.view_accounts()
+        _register(ui, "IT001-A")
+        _login(ui, "Lecturer", "LEC001", "123456")
+        dashboard = ui.app.frames["LecturerDashboard"]
+        ui.set_dialog_response("15")
+        dashboard.enter_grade("REG-SV01-IT001-A", "IT001-A")
         ui.pump()
-        texts = ui.label_texts(admin.main_content)
-        assert _text_contains(texts, "STU001"), texts
+        assert ui.scalar("SELECT COUNT(*) FROM ACADEMIC_RESULT WHERE FormID = 'REG-SV01-IT001-A'") == 0
+        assert any(kind == "showerror" for kind, _title, _msg in ui.messages)
 
 
-@testcase("TC022")
-def tc022_ui_admin_locks_student_account(repo_root: Path) -> None:
+def tc24_ui_lecturer_grade_entry(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
-        ui.login("Admin", "ADM001", "123456")
-        admin = ui.app.frames["AdminDashboard"]
-        ui.step()
-        admin.view_accounts()
+        _register(ui, "IT001-A")
+        _login(ui, "Lecturer", "LEC001", "123456")
+        dashboard = ui.app.frames["LecturerDashboard"]
+        ui.set_dialog_response("abc")
+        dashboard.enter_grade("REG-SV01-IT001-A", "IT001-A")
         ui.pump()
-        buttons = ui.buttons_under(admin.main_content)
-        assert buttons, "Expected lock/unlock account buttons."
-        ui.step()
-        buttons[0].invoke()
-        ui.pump()
-        status = ui.scalar("SELECT Status FROM ACCOUNT WHERE AccountID = ?", ("STU001",))
-        assert status == "Locked", f"Expected STU001 to be Locked, got {status}"
+        assert ui.scalar("SELECT COUNT(*) FROM ACADEMIC_RESULT WHERE FormID = 'REG-SV01-IT001-A'") == 0
+        assert any(kind == "showerror" for kind, _title, _msg in ui.messages)
 
 
-@testcase("TC023")
-def tc023_ui_admin_students_screen(repo_root: Path) -> None:
+def tc25_ui_admin_accounts(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
-        ui.login("Admin", "ADM001", "123456")
-        admin = ui.app.frames["AdminDashboard"]
-        ui.step()
-        admin.view_students()
+        _login(ui, "Admin", "ADM001", "123456")
+        dashboard = ui.app.frames["AdminDashboard"]
+        dashboard.toggle_acc("STU001", "Active")
         ui.pump()
-        texts = ui.label_texts(admin.main_content)
-        assert _text_contains(texts, "Nguyen") or _text_contains(texts, "Khoa"), texts
+        assert ui.scalar("SELECT Status FROM ACCOUNT WHERE AccountID = 'STU001'") == "Locked"
 
 
-@testcase("TC024")
-def tc024_ui_admin_adds_student(repo_root: Path) -> None:
+def tc26_ui_admin_students(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
-        ui.login("Admin", "ADM001", "123456")
-        admin = ui.app.frames["AdminDashboard"]
-        ui.step()
-        admin.form_add_student()
+        _login(ui, "Admin", "ADM001", "123456")
+        dashboard = ui.app.frames["AdminDashboard"]
+        dashboard.form_add_student()
         ui.pump()
-        entries = [child for child in admin.main_content.winfo_children() if isinstance(child, tk.Entry)]
-        assert len(entries) >= 2, "Expected name and major entries."
-        ui.step()
-        entries[0].insert(0, "Automation UI Student")
-        entries[1].insert(0, "Automation Major")
-        buttons = ui.buttons_under(admin.main_content)
-        ui.step()
-        buttons[-1].invoke()
+        entries = ui.entries_under(dashboard.main_content)
+        entries[0].insert(0, "Test Student")
+        entries[1].insert(0, "CNTT")
+        ui.buttons_under(dashboard.main_content)[-1].invoke()
         ui.pump()
-        count = ui.scalar("SELECT COUNT(*) FROM STUDENT WHERE Fullname = ?", ("Automation UI Student",))
-        assert count == 1, f"Expected added student row, got {count}"
+        assert ui.scalar("SELECT COUNT(*) FROM STUDENT WHERE Fullname = 'Test Student' AND Major = 'CNTT'") == 1
 
 
-@testcase("TC025")
-def tc025_ui_admin_add_student_missing_data_shows_error(repo_root: Path) -> None:
+def tc27_ui_admin_students(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
-        ui.login("Admin", "ADM001", "123456")
-        admin = ui.app.frames["AdminDashboard"]
-        ui.step()
-        admin.form_add_student()
+        _login(ui, "Admin", "ADM001", "123456")
+        dashboard = ui.app.frames["AdminDashboard"]
+        dashboard.form_add_student()
         ui.pump()
-        entries = [child for child in admin.main_content.winfo_children() if isinstance(child, tk.Entry)]
-        ui.step()
-        entries[1].insert(0, "Automation Major")
-        buttons = ui.buttons_under(admin.main_content)
-        ui.step()
-        buttons[-1].invoke()
+        entries = ui.entries_under(dashboard.main_content)
+        entries[0].insert(0, "Test")
+        ui.buttons_under(dashboard.main_content)[-1].invoke()
         ui.pump()
-        assert any(kind == "showerror" for kind, _title, _msg in ui.messages), ui.messages
+        assert ui.scalar("SELECT COUNT(*) FROM STUDENT WHERE Fullname = 'Test'") == 0
+        assert any(kind == "showerror" for kind, _title, _msg in ui.messages)
 
 
-@testcase("TC026")
-def tc026_ui_admin_subjects_screen(repo_root: Path) -> None:
+def tc28_ui_admin_students(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
-        ui.login("Admin", "ADM001", "123456")
-        admin = ui.app.frames["AdminDashboard"]
-        ui.step()
-        admin.view_subjects()
+        _login(ui, "Admin", "ADM001", "123456")
+        dashboard = ui.app.frames["AdminDashboard"]
+        dashboard.form_edit_student("SV01")
         ui.pump()
-        texts = ui.label_texts(admin.main_content)
-        assert _text_contains(texts, "IT001"), texts
+        entries = ui.entries_under(dashboard.main_content)
+        entries[2].delete(0, tk.END)
+        entries[2].insert(0, "2000000")
+        ui.buttons_under(dashboard.main_content)[-1].invoke()
+        ui.pump()
+        assert ui.scalar("SELECT Debt FROM STUDENT WHERE StudentID = 'SV01'") == 2000000
 
 
-@testcase("TC027")
-def tc027_ui_admin_toggles_class_status(repo_root: Path) -> None:
+def tc29_ui_admin_students(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
-        ui.login("Admin", "ADM001", "123456")
-        admin = ui.app.frames["AdminDashboard"]
-        ui.step()
-        admin.view_classes()
+        _login(ui, "Admin", "ADM001", "123456")
+        dashboard = ui.app.frames["AdminDashboard"]
+        dashboard.form_edit_student("SV01")
         ui.pump()
-        button = ui.button_containing(admin.main_content, "\u0110\u1ed5i")
-        ui.step()
-        button.invoke()
+        entries = ui.entries_under(dashboard.main_content)
+        entries[2].delete(0, tk.END)
+        entries[2].insert(0, "abc")
+        ui.buttons_under(dashboard.main_content)[-1].invoke()
         ui.pump()
-        status = ui.scalar("SELECT Status FROM COURSE_CLASS WHERE ClassID = ?", ("IT001-A",))
-        assert status == 1, f"Expected locked class status 1, got {status}"
+        assert ui.scalar("SELECT Debt FROM STUDENT WHERE StudentID = 'SV01'") == 5000000
+        assert any(kind == "showerror" for kind, _title, _msg in ui.messages)
 
 
-@testcase("TC028")
-def tc028_ui_admin_approves_graduation_application(repo_root: Path) -> None:
+def tc30_ui_admin_students(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
-        ui.step()
-        conn = __import__("sqlite3").connect(ui.db_path)
-        try:
-            conn.execute("INSERT INTO GRADUATION_APP VALUES (?, ?, 'Pending')", ("APP-SV01", "SV01"))
-            conn.commit()
-        finally:
-            conn.close()
-        ui.login("Admin", "ADM001", "123456")
-        admin = ui.app.frames["AdminDashboard"]
-        ui.step()
-        admin.view_audit()
+        ui.execute("INSERT OR REPLACE INTO STUDENT (StudentID, Fullname, Major, Credits, GPA, Debt) VALUES ('DEL01', 'Delete Me', 'CNTT', 0, 0, 0)")
+        ui.execute("INSERT OR REPLACE INTO ACCOUNT VALUES ('DEL01', 'DEL01', '123456', 'Student', 'Active')")
+        ui.execute("INSERT OR REPLACE INTO REGISTRATION_FORM VALUES ('REG-DEL01-IT001-A', 'DEL01', 'IT001-A', '2026-07-07')")
+        ui.execute("INSERT OR REPLACE INTO ACADEMIC_RESULT VALUES ('REG-DEL01-IT001-A', 8, 8, 8, 'B')")
+        ui.execute("INSERT OR REPLACE INTO GRADUATION_APP VALUES ('APP-DEL01', 'DEL01', 'Pending')")
+        _login(ui, "Admin", "ADM001", "123456")
+        dashboard = ui.app.frames["AdminDashboard"]
+        dashboard.delete_student("DEL01")
         ui.pump()
-        button = ui.button_containing(admin.main_content, "Duy\u1ec7t")
-        ui.step()
-        button.invoke()
-        ui.pump()
-        status = ui.scalar("SELECT Status FROM GRADUATION_APP WHERE AppID = ?", ("APP-SV01",))
-        assert status == "Approved", status
+        assert ui.scalar("SELECT COUNT(*) FROM STUDENT WHERE StudentID = 'DEL01'") == 0
+        assert ui.scalar("SELECT COUNT(*) FROM ACCOUNT WHERE OwnerID = 'DEL01'") == 0
+        assert ui.scalar("SELECT COUNT(*) FROM REGISTRATION_FORM WHERE StudentID = 'DEL01'") == 0
+        assert ui.scalar("SELECT COUNT(*) FROM GRADUATION_APP WHERE StudentID = 'DEL01'") == 0
+        assert ui.scalar("SELECT COUNT(*) FROM ACADEMIC_RESULT WHERE FormID = 'REG-DEL01-IT001-A'") == 0
 
 
-@testcase("TC029")
-def tc029_ui_logout_returns_to_login(repo_root: Path) -> None:
+def tc31_ui_admin_classes(repo_root: Path) -> None:
     with UiAppHelper(repo_root) as ui:
-        ui.login("Student", "STU001", "123456")
-        dashboard = ui.app.frames["StudentDashboard"]
-        buttons = ui.buttons_under(dashboard.nav)
-        logout_buttons = [button for button in buttons if "Tho" in str(button.cget("text"))]
-        assert logout_buttons, "Expected logout button in dashboard nav."
-        ui.step()
-        logout_buttons[0].invoke()
+        _login(ui, "Admin", "ADM001", "123456")
+        dashboard = ui.app.frames["AdminDashboard"]
+        dashboard.form_add_class()
         ui.pump()
-        login_view = ui.app.frames["LoginView"]
-        assert login_view.e_usr.winfo_exists(), "Login view should still exist after logout."
-
-
-@testcase("TC030")
-def tc030_ui_admin_duplicate_class_shows_error(repo_root: Path) -> None:
-    with UiAppHelper(repo_root) as ui:
-        ui.login("Admin", "ADM001", "123456")
-        admin = ui.app.frames["AdminDashboard"]
-        ui.step()
-        admin.form_add_class()
-        ui.pump()
-        entries = ui.entries_under(admin.main_content)
-        assert len(entries) >= 5, "Expected class form entries."
-        values = ["IT001-A", "IT001", "GV01", "T6 (08:00-10:30)", "40"]
-        ui.step()
-        for entry, value in zip(entries[:5], values):
-            entry.delete(0, tk.END)
+        entries = ui.entries_under(dashboard.main_content)
+        for entry, value in zip(entries[:5], ["IT003-D", "IT003", "GV01", "T6 (08:00-10:30)", "40"]):
             entry.insert(0, value)
-        button = ui.button_containing(admin.main_content, "L")
-        ui.step()
-        button.invoke()
+        ui.buttons_under(dashboard.main_content)[-1].invoke()
         ui.pump()
-        class_count = ui.scalar("SELECT COUNT(*) FROM COURSE_CLASS WHERE ClassID = ?", ("IT001-A",))
-        assert class_count == 1, f"Expected duplicate ClassID to stay at one row, got {class_count}"
-        assert any(kind == "showerror" for kind, _title, _msg in ui.messages), ui.messages
+        assert ui.scalar("SELECT COUNT(*) FROM COURSE_CLASS WHERE ClassID = 'IT003-D'") == 1
+
+
+def tc32_ui_admin_classes(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _login(ui, "Admin", "ADM001", "123456")
+        dashboard = ui.app.frames["AdminDashboard"]
+        dashboard.form_add_class()
+        ui.pump()
+        entries = ui.entries_under(dashboard.main_content)
+        for entry, value in zip(entries[:5], ["IT001-A", "IT001", "GV01", "T6 (08:00-10:30)", "40"]):
+            entry.insert(0, value)
+        ui.buttons_under(dashboard.main_content)[-1].invoke()
+        ui.pump()
+        assert ui.scalar("SELECT COUNT(*) FROM COURSE_CLASS WHERE ClassID = 'IT001-A'") == 1
+        assert any(kind == "showerror" for kind, _title, _msg in ui.messages)
+
+
+def tc33_ui_admin_classes(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _register(ui, "IT001-A")
+        _login(ui, "Admin", "ADM001", "123456")
+        dashboard = ui.app.frames["AdminDashboard"]
+        dashboard.toggle_class("IT001-A", 0)
+        ui.pump()
+        assert ui.scalar("SELECT Status FROM COURSE_CLASS WHERE ClassID = 'IT001-A'") == 1
+        assert ui.scalar("SELECT CurrentEnrollment FROM COURSE_CLASS WHERE ClassID = 'IT001-A'") == 0
+        assert ui.scalar("SELECT COUNT(*) FROM REGISTRATION_FORM WHERE ClassID = 'IT001-A'") == 0
+
+
+def tc34_ui_admin_graduation(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        ui.execute("INSERT OR REPLACE INTO GRADUATION_APP VALUES ('TEST-APP', 'SV120', 'Pending')")
+        _login(ui, "Admin", "ADM001", "123456")
+        dashboard = ui.app.frames["AdminDashboard"]
+        dashboard.approve_app("TEST-APP")
+        ui.pump()
+        assert ui.scalar("SELECT Status FROM GRADUATION_APP WHERE AppID = 'TEST-APP'") == "Approved"
+
+
+def tc35_ui_admin_graduation(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        ui.execute("INSERT OR REPLACE INTO GRADUATION_APP VALUES ('TEST-APP', 'SV120', 'Pending')")
+        _login(ui, "Admin", "ADM001", "123456")
+        dashboard = ui.app.frames["AdminDashboard"]
+        ui.set_dialog_response("Outstanding tuition")
+        dashboard.reject_app("TEST-APP")
+        ui.pump()
+        assert ui.scalar("SELECT Status FROM GRADUATION_APP WHERE AppID = 'TEST-APP'") == "Rejected (Outstanding tuition)"
+
+
+def tc36_ui_lecturer_excel_export(repo_root: Path) -> None:
+    with UiAppHelper(repo_root) as ui:
+        _register(ui, "IT001-A")
+        export_path = ui.db_path.parent / "student-list.csv"
+        ui.set_save_path(export_path)
+        _login(ui, "Lecturer", "LEC001", "123456")
+        dashboard = ui.app.frames["LecturerDashboard"]
+        dashboard.export_to_excel("IT001-A", "Co so Du lieu")
+        ui.pump()
+        assert export_path.exists()
+        rows = list(csv.reader(export_path.open(encoding="utf-8-sig", newline="")))
+        assert rows[0] == ["Mã Lớp", "Tên Môn", "Mã SV", "Họ Tên", "Chuyên Ngành"]
+        assert any(row[0] == "IT001-A" and row[2] == "SV01" for row in rows[1:])

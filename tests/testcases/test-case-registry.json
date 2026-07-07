@@ -1,32 +1,453 @@
 [
-  {"id": "TC001", "function": "Open App", "type": "UI", "tags": ["ui", "startup", "database", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc001_ui_open_app_creates_database"},
-  {"id": "TC002", "function": "Splash Navigation", "type": "UI", "tags": ["ui", "navigation", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc002_ui_start_button_opens_login_page"},
-  {"id": "TC003", "function": "Login", "type": "UI", "tags": ["ui", "auth", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc003_ui_login_student_success"},
-  {"id": "TC004", "function": "Login", "type": "UI", "tags": ["ui", "auth", "negative"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc004_ui_login_wrong_password_shows_error"},
-  {"id": "TC005", "function": "Login", "type": "UI", "tags": ["ui", "auth", "authorization", "negative"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc005_ui_login_wrong_role_shows_error"},
-  {"id": "TC006", "function": "Login", "type": "UI", "tags": ["ui", "auth", "authorization", "negative"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc006_ui_locked_account_cannot_login"},
-  {"id": "TC007", "function": "Student Profile", "type": "UI", "tags": ["ui", "student", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc007_ui_student_profile_screen"},
-  {"id": "TC008", "function": "Student Curriculum", "type": "UI", "tags": ["ui", "student", "curriculum", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc008_ui_student_curriculum_screen"},
-  {"id": "TC009", "function": "Student Timetable", "type": "UI", "tags": ["ui", "student", "timetable", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc009_ui_student_timetable_empty_state"},
-  {"id": "TC010", "function": "Student Grades", "type": "UI", "tags": ["ui", "student", "grades", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc010_ui_student_grades_empty_state"},
-  {"id": "TC011", "function": "Course Registration", "type": "UI", "tags": ["ui", "student", "registration", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc011_ui_student_registers_first_open_class"},
-  {"id": "TC012", "function": "Course Registration", "type": "UI", "tags": ["ui", "student", "registration", "duplicate", "negative"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc012_ui_student_duplicate_registration_does_not_duplicate"},
-  {"id": "TC013", "function": "Course Registration", "type": "UI", "tags": ["ui", "student", "registration", "boundary", "negative"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc013_ui_full_class_registration_shows_error"},
-  {"id": "TC014", "function": "Course Cancellation", "type": "UI", "tags": ["ui", "student", "cancellation", "negative", "boundary"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc014_ui_student_cancels_registered_class"},
-  {"id": "TC015", "function": "Tuition Payment", "type": "UI", "tags": ["ui", "student", "tuition", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc015_ui_student_pays_tuition"},
-  {"id": "TC016", "function": "Graduation Application", "type": "UI", "tags": ["ui", "student", "graduation", "negative", "boundary"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc016_ui_ineligible_student_has_no_graduation_submit_button"},
-  {"id": "TC017", "function": "Graduation Application", "type": "UI", "tags": ["ui", "student", "graduation", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc017_ui_eligible_student_submits_graduation_application"},
-  {"id": "TC018", "function": "Lecturer Schedule", "type": "UI", "tags": ["ui", "lecturer", "schedule", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc018_ui_lecturer_schedule_screen"},
-  {"id": "TC019", "function": "Lecturer Class Students", "type": "UI", "tags": ["ui", "lecturer", "students", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc019_ui_lecturer_views_class_students"},
-  {"id": "TC020", "function": "Lecturer Grading", "type": "UI", "tags": ["ui", "lecturer", "grading", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc020_ui_lecturer_grading_action_shows_message"},
-  {"id": "TC021", "function": "Account Management", "type": "UI", "tags": ["ui", "admin", "account", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc021_ui_admin_accounts_screen"},
-  {"id": "TC022", "function": "Account Management", "type": "UI", "tags": ["ui", "admin", "account", "authorization", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc022_ui_admin_locks_student_account"},
-  {"id": "TC023", "function": "Student Management", "type": "UI", "tags": ["ui", "admin", "student", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc023_ui_admin_students_screen"},
-  {"id": "TC024", "function": "Student Management", "type": "UI", "tags": ["ui", "admin", "student", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc024_ui_admin_adds_student"},
-  {"id": "TC025", "function": "Student Management", "type": "UI", "tags": ["ui", "admin", "student", "negative", "boundary"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc025_ui_admin_add_student_missing_data_shows_error"},
-  {"id": "TC026", "function": "Admin Curriculum", "type": "UI", "tags": ["ui", "admin", "curriculum", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc026_ui_admin_subjects_screen"},
-  {"id": "TC027", "function": "Class Management", "type": "UI", "tags": ["ui", "admin", "class", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc027_ui_admin_toggles_class_status"},
-  {"id": "TC028", "function": "Graduation Approval", "type": "UI", "tags": ["ui", "admin", "graduation", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc028_ui_admin_approves_graduation_application"},
-  {"id": "TC029", "function": "Logout", "type": "UI", "tags": ["ui", "auth", "navigation", "positive"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc029_ui_logout_returns_to_login"},
-  {"id": "TC030", "function": "Class Management", "type": "UI", "tags": ["ui", "admin", "class", "negative", "duplicate"], "automated": true, "testTarget": "tests.ui.test_portal_ui.tc030_ui_admin_duplicate_class_shows_error"}
+  {
+    "id": "TC01",
+    "function": "Login",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "login",
+      "positive"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc01_ui_login"
+  },
+  {
+    "id": "TC02",
+    "function": "Login",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "login",
+      "negative"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc02_ui_login"
+  },
+  {
+    "id": "TC03",
+    "function": "Login",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "login",
+      "negative",
+      "authorization"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc03_ui_login"
+  },
+  {
+    "id": "TC04",
+    "function": "Login",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "login",
+      "negative",
+      "authorization"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc04_ui_login"
+  },
+  {
+    "id": "TC05",
+    "function": "Login",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "login",
+      "negative",
+      "authorization"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc05_ui_login"
+  },
+  {
+    "id": "TC06",
+    "function": "Login",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "login",
+      "positive"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc06_ui_login"
+  },
+  {
+    "id": "TC07",
+    "function": "Login",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "login",
+      "positive"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc07_ui_login"
+  },
+  {
+    "id": "TC08",
+    "function": "Student - Profile",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "student",
+      "positive",
+      "boundary"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc08_ui_student_profile"
+  },
+  {
+    "id": "TC09",
+    "function": "Student - Curriculum",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "student",
+      "positive"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc09_ui_student_curriculum"
+  },
+  {
+    "id": "TC10",
+    "function": "Student - Timetable",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "student",
+      "positive"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc10_ui_student_timetable"
+  },
+  {
+    "id": "TC11",
+    "function": "Student - Transcript",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "student",
+      "positive"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc11_ui_student_transcript"
+  },
+  {
+    "id": "TC12",
+    "function": "Student - Course Registration",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "student",
+      "positive"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc12_ui_student_course_registration"
+  },
+  {
+    "id": "TC13",
+    "function": "Student - Course Registration",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "student",
+      "positive",
+      "duplicate"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc13_ui_student_course_registration"
+  },
+  {
+    "id": "TC14",
+    "function": "Student - Course Registration",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "student",
+      "negative",
+      "authorization",
+      "boundary"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc14_ui_student_course_registration"
+  },
+  {
+    "id": "TC15",
+    "function": "Student - Course Registration",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "student",
+      "negative",
+      "authorization",
+      "duplicate"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc15_ui_student_course_registration"
+  },
+  {
+    "id": "TC16",
+    "function": "Student - Cancel Enrollment",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "student",
+      "positive"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc16_ui_student_cancel_enrollment"
+  },
+  {
+    "id": "TC17",
+    "function": "Student - Graduation",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "student",
+      "negative"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc17_ui_student_graduation"
+  },
+  {
+    "id": "TC18",
+    "function": "Student - Tuition",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "student",
+      "positive"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc18_ui_student_tuition"
+  },
+  {
+    "id": "TC19",
+    "function": "Student - Tuition",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "student",
+      "positive"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc19_ui_student_tuition"
+  },
+  {
+    "id": "TC20",
+    "function": "Lecturer - Teaching Schedule",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "lecturer",
+      "positive"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc20_ui_lecturer_teaching_schedule"
+  },
+  {
+    "id": "TC21",
+    "function": "Lecturer - Student List",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "lecturer",
+      "positive"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc21_ui_lecturer_student_list"
+  },
+  {
+    "id": "TC22",
+    "function": "Lecturer - Grade Entry",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "lecturer",
+      "positive",
+      "boundary"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc22_ui_lecturer_grade_entry"
+  },
+  {
+    "id": "TC23",
+    "function": "Lecturer - Grade Entry",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "lecturer",
+      "negative"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc23_ui_lecturer_grade_entry"
+  },
+  {
+    "id": "TC24",
+    "function": "Lecturer - Grade Entry",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "lecturer",
+      "negative"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc24_ui_lecturer_grade_entry"
+  },
+  {
+    "id": "TC25",
+    "function": "Admin - Accounts",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "admin",
+      "negative",
+      "authorization"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc25_ui_admin_accounts"
+  },
+  {
+    "id": "TC26",
+    "function": "Admin - Students",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "admin",
+      "positive",
+      "authorization"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc26_ui_admin_students"
+  },
+  {
+    "id": "TC27",
+    "function": "Admin - Students",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "admin",
+      "negative",
+      "authorization"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc27_ui_admin_students"
+  },
+  {
+    "id": "TC28",
+    "function": "Admin - Students",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "admin",
+      "positive",
+      "boundary"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc28_ui_admin_students"
+  },
+  {
+    "id": "TC29",
+    "function": "Admin - Students",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "admin",
+      "negative"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc29_ui_admin_students"
+  },
+  {
+    "id": "TC30",
+    "function": "Admin - Students",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "admin",
+      "positive",
+      "authorization"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc30_ui_admin_students"
+  },
+  {
+    "id": "TC31",
+    "function": "Admin - Classes",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "admin",
+      "positive",
+      "boundary"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc31_ui_admin_classes"
+  },
+  {
+    "id": "TC32",
+    "function": "Admin - Classes",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "admin",
+      "negative",
+      "boundary",
+      "duplicate"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc32_ui_admin_classes"
+  },
+  {
+    "id": "TC33",
+    "function": "Admin - Classes",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "admin",
+      "negative",
+      "authorization"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc33_ui_admin_classes"
+  },
+  {
+    "id": "TC34",
+    "function": "Admin - Graduation",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "admin",
+      "positive"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc34_ui_admin_graduation"
+  },
+  {
+    "id": "TC35",
+    "function": "Admin - Graduation",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "admin",
+      "positive"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc35_ui_admin_graduation"
+  },
+  {
+    "id": "TC36",
+    "function": "Lecturer - Excel Export",
+    "type": "UI",
+    "tags": [
+      "ui",
+      "lecturer",
+      "positive"
+    ],
+    "automated": true,
+    "testTarget": "tests.ui.test_portal_ui.tc36_ui_lecturer_excel_export"
+  }
 ]

@@ -112,7 +112,7 @@ class StudentDashboard(BaseDashboard):
     def process_cancel(self, fid, cid):
         from datetime import datetime
         
-        deadline_str = "2024-01-01 00:00:00" 
+        deadline_str = "2027-01-01 00:00:00" 
         deadline = datetime.strptime(deadline_str, "%Y-%m-%d %H:%M:%S")
         if datetime.now() > deadline:
             messagebox.showwarning(

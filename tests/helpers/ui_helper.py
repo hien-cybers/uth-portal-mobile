@@ -9,7 +9,7 @@ import sys
 import tempfile
 import time
 import tkinter as tk
-from tkinter import messagebox, simpledialog
+from tkinter import filedialog, messagebox, simpledialog
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +22,10 @@ class UiAppHelper:
         self.app: Any = None
         self._messagebox_originals: dict[str, Any] = {}
         self._simpledialog_originals: dict[str, Any] = {}
+        self._filedialog_originals: dict[str, Any] = {}
         self.messages: list[tuple[str, str, str]] = []
+        self.dialog_response = "automation-test"
+        self.save_path: str | None = None
         self.step_delay = float(os.getenv("UI_STEP_DELAY", "0") or "0")
         self.test_id = os.getenv("CURRENT_TEST_ID", "")
         self.test_steps = json.loads(os.getenv("CURRENT_TEST_STEPS", "[]") or "[]")
@@ -56,6 +59,7 @@ class UiAppHelper:
 
         self._restore_messagebox()
         self._restore_simpledialog()
+        self._restore_filedialog()
 
         if self.previous_cwd:
             os.chdir(self.previous_cwd)
@@ -116,7 +120,9 @@ class UiAppHelper:
         self._messagebox_originals["askyesno"] = messagebox.askyesno
         messagebox.askyesno = lambda title, message, *args, **kwargs: True
         self._simpledialog_originals["askstring"] = simpledialog.askstring
-        simpledialog.askstring = lambda title, prompt, *args, **kwargs: "automation-test"
+        simpledialog.askstring = lambda title, prompt, *args, **kwargs: self.dialog_response
+        self._filedialog_originals["asksaveasfilename"] = filedialog.asksaveasfilename
+        filedialog.asksaveasfilename = lambda *args, **kwargs: self.save_path or str(self.db_path.with_suffix(".csv"))
 
     def _restore_messagebox(self) -> None:
         for name, original in self._messagebox_originals.items():
@@ -127,6 +133,17 @@ class UiAppHelper:
         for name, original in self._simpledialog_originals.items():
             setattr(simpledialog, name, original)
         self._simpledialog_originals.clear()
+
+    def _restore_filedialog(self) -> None:
+        for name, original in self._filedialog_originals.items():
+            setattr(filedialog, name, original)
+        self._filedialog_originals.clear()
+
+    def set_dialog_response(self, value: str) -> None:
+        self.dialog_response = value
+
+    def set_save_path(self, value: Path | str) -> None:
+        self.save_path = str(value)
 
     def show_login(self) -> Any:
         self.step()
@@ -222,5 +239,13 @@ class UiAppHelper:
             cur.execute(sql, params)
             row = cur.fetchone()
             return row[0] if row else None
+        finally:
+            conn.close()
+
+    def execute(self, sql: str, params: tuple[Any, ...] = ()) -> None:
+        conn = sqlite3.connect(self.db_path)
+        try:
+            conn.execute(sql, params)
+            conn.commit()
         finally:
             conn.close()

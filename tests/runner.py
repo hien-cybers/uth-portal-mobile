@@ -53,7 +53,7 @@ def documented_test_case_ids() -> list[str]:
     if not TEST_CASES_DOC.exists():
         return []
     text = TEST_CASES_DOC.read_text(encoding="utf-8")
-    return re.findall(r"\|\s*(TC\d{3})\s*\|", text)
+    return re.findall(r"\|\s*(TC\d+)\s*\|", text)
 
 
 def documented_test_steps() -> dict[str, list[str]]:
@@ -62,7 +62,7 @@ def documented_test_steps() -> dict[str, list[str]]:
 
     steps_by_id: dict[str, list[str]] = {}
     for line in TEST_CASES_DOC.read_text(encoding="utf-8").splitlines():
-        if not re.match(r"\|\s*TC\d{3}\s*\|", line):
+        if not re.match(r"\|\s*TC\d+\s*\|", line):
             continue
 
         parts = [part.strip() for part in line.strip().strip("|").split("|")]
@@ -85,7 +85,7 @@ def documented_input_data() -> dict[str, list[str]]:
 
     inputs_by_id: dict[str, list[str]] = {}
     for line in TEST_CASES_DOC.read_text(encoding="utf-8").splitlines():
-        if not re.match(r"\|\s*TC\d{3}\s*\|", line):
+        if not re.match(r"\|\s*TC\d+\s*\|", line):
             continue
 
         parts = [part.strip() for part in line.strip().strip("|").split("|")]
@@ -108,7 +108,7 @@ def documented_expected_results() -> dict[str, str]:
 
     expected_by_id: dict[str, str] = {}
     for line in TEST_CASES_DOC.read_text(encoding="utf-8").splitlines():
-        if not re.match(r"\|\s*TC\d{3}\s*\|", line):
+        if not re.match(r"\|\s*TC\d+\s*\|", line):
             continue
 
         parts = [part.strip() for part in line.strip().strip("|").split("|")]
@@ -125,7 +125,7 @@ def documented_labels() -> dict[str, str]:
 
     labels_by_id: dict[str, str] = {}
     for line in TEST_CASES_DOC.read_text(encoding="utf-8").splitlines():
-        if not re.match(r"\|\s*TC\d{3}\s*\|", line):
+        if not re.match(r"\|\s*TC\d+\s*\|", line):
             continue
 
         parts = [part.strip() for part in line.strip().strip("|").split("|")]
@@ -177,7 +177,7 @@ def validate_registry(registry: list[dict[str, Any]]) -> list[str]:
 
     if TEST_CASES_DOC.exists():
         for line in TEST_CASES_DOC.read_text(encoding="utf-8").splitlines():
-            if re.match(r"\|\s*TC\d{3}\s*\|", line):
+            if re.match(r"\|\s*TC\d+\s*\|", line):
                 parts = [part.strip() for part in line.strip().strip("|").split("|")]
                 if len(parts) >= 5:
                     test_id, function, _steps, _input, expected = parts[:5]
