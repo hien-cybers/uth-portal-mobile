@@ -1,6 +1,0 @@
-__pycache__/
-*.pyc
-.git/
-.gitignore
-TEST_CASES.xlsx - Sheet1.csv
-RequirementAndDesignDocument.pdf

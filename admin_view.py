@@ -156,10 +156,32 @@ class AdminDashboard(BaseDashboard):
             messagebox.showinfo("Thành công", f"Đã xóa hoàn toàn sinh viên {sid} khỏi hệ thống.")
             self.view_students()
     def view_subjects(self):
-        self.set_subpage("Khung CTĐT")
+        self.set_subpage("Khung CTĐT (Môn học)")
+        
+        # Thanh công cụ chứa Tiêu đề và Nút Thêm mới
+        top_bar = tk.Frame(self.main_content, bg=AppTheme.BG_APP)
+        top_bar.pack(fill=tk.X, pady=(0, 10))
+        tk.Label(top_bar, text="Danh sách Môn học", font=AppTheme.TITLE_M, bg=AppTheme.BG_APP, fg=AppTheme.TEXT_MAIN).pack(side=tk.LEFT)
+        tk.Button(top_bar, text="+ Môn mới", bg=AppTheme.PRIMARY, fg=AppTheme.BG_CARD, font=AppTheme.BODY_L, bd=0, command=self.form_add_subject).pack(side=tk.RIGHT, ipadx=15, ipady=5)
+
         subs = CoreManager.get_query("SELECT * FROM SUBJECT")
         scroll = self.create_scroll_canvas()
-        for s in subs: self.create_card(scroll, s['SubjectName'], s['SubjectID'], f"{s['Credits']} TC")
+        
+        for s in subs: 
+            card = tk.Frame(scroll, bg=AppTheme.BG_CARD, padx=15, pady=15, relief=tk.FLAT)
+            card.pack(fill=tk.X, pady=5)
+            
+            info_frame = tk.Frame(card, bg=AppTheme.BG_CARD)
+            info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            
+            tk.Label(info_frame, text=s['SubjectName'], font=AppTheme.TITLE_M, bg=AppTheme.BG_CARD, fg=AppTheme.TEXT_MAIN).pack(anchor="w")
+            tk.Label(info_frame, text=f"Mã môn: {s['SubjectID']} | {s['Credits']} Tín chỉ | Loại: {s['Type']}", font=AppTheme.BODY_M, bg=AppTheme.BG_CARD, fg=AppTheme.TEXT_MUTED).pack(anchor="w")
+            
+            btn_frame = tk.Frame(card, bg=AppTheme.BG_CARD)
+            btn_frame.pack(side=tk.RIGHT)
+            
+            tk.Button(btn_frame, text="Sửa", bg=AppTheme.WARNING, fg=AppTheme.BG_CARD, font=AppTheme.BTN_TEXT, bd=0, command=lambda sid=s['SubjectID']: self.form_edit_subject(sid)).pack(side=tk.LEFT, padx=5, ipady=5, ipadx=15)
+            tk.Button(btn_frame, text="Xóa", bg=AppTheme.DANGER, fg=AppTheme.BG_CARD, font=AppTheme.BTN_TEXT, bd=0, command=lambda sid=s['SubjectID']: self.delete_subject(sid)).pack(side=tk.LEFT, padx=5, ipady=5, ipadx=15)
 
     def view_classes(self):
         self.set_subpage("Quản lý Lớp")

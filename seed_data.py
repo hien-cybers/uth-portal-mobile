@@ -89,6 +89,10 @@ def seed_demo_scenarios(conn):
         ("AUTO-REG-SV01-IT002-B", "SV01", "IT002-B", "2024-01-01"),
     )
     conn.execute("UPDATE COURSE_CLASS SET CurrentEnrollment = 1 WHERE ClassID = 'IT002-B'")
+    
+    # ĐÂY LÀ ĐOẠN LỆNH ÔNG LỠ XÓA MẤT NÈ: Làm giả sĩ số đầy 40/40 cho lớp IT003-C
+    conn.execute("UPDATE COURSE_CLASS SET CurrentEnrollment = 40 WHERE ClassID = 'IT003-C'")
+    
     conn.execute(
         "INSERT OR REPLACE INTO ACADEMIC_RESULT (FormID, ProcessScore, FinalExamScore, FinalScore, LetterGrade) VALUES (?, ?, ?, ?, ?)",
         ("AUTO-REG-SV01-IT002-B", 8.0, 8.5, 8.3, "B+"),

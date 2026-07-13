@@ -95,14 +95,36 @@ class LecturerDashboard(BaseDashboard):
                     messagebox.showerror("Lỗi", "Điểm phải từ 0-10")
                     return
                 final = round(p_score * 0.3 + f_score * 0.7, 1)
+                
                 if final >= 8.5: letter = 'A'
                 elif final >= 7.0: letter = 'B'
                 elif final >= 5.5: letter = 'C'
                 elif final >= 4.0: letter = 'D'
                 else: letter = 'F'
 
+                # 1. ÉP KIỂU SỐ NGUYÊN (INT) ĐỂ DB KHÔNG BỊ XỊT NGẦM
+                info = CoreManager.get_query("SELECT r.StudentID, s.Credits FROM REGISTRATION_FORM r JOIN COURSE_CLASS c ON r.ClassID = c.ClassID JOIN SUBJECT s ON c.SubjectID = s.SubjectID WHERE r.FormID = ?", (fid,))[0]
+                stu_id = info['StudentID']
+                sub_credits = int(info['Credits']) 
+
+                # 2. Lấy điểm cũ để so sánh
+                old_result = CoreManager.get_query("SELECT LetterGrade FROM ACADEMIC_RESULT WHERE FormID = ?", (fid,))
+                old_passed = True if old_result and old_result[0]['LetterGrade'] != 'F' else False
+                new_passed = True if letter != 'F' else False
+
+                msg_extra = ""
+                # 3. Kích hoạt Cò súng (Trigger) Cộng/Trừ tín chỉ
+                if not old_passed and new_passed:
+                    CoreManager.execute_query("UPDATE STUDENT SET Credits = Credits + ? WHERE StudentID = ?", (sub_credits, stu_id))
+                    msg_extra = f"\n(Hệ thống tự động CỘNG {sub_credits} tín chỉ cho SV)"
+                elif old_passed and not new_passed:
+                    CoreManager.execute_query("UPDATE STUDENT SET Credits = Credits - ? WHERE StudentID = ?", (sub_credits, stu_id))
+                    msg_extra = f"\n(Hệ thống tự động TRỪ {sub_credits} tín chỉ của SV)"
+
+                # 4. Ghi điểm vào Bảng Điểm
                 CoreManager.execute_query("INSERT OR REPLACE INTO ACADEMIC_RESULT (FormID, ProcessScore, FinalExamScore, FinalScore, LetterGrade) VALUES (?, ?, ?, ?, ?)", (fid, p_score, f_score, final, letter))
-                messagebox.showinfo("Thành công", f"Điểm tổng kết: {final} ({letter})")
+                
+                messagebox.showinfo("Thành công", f"Điểm tổng kết: {final} ({letter}){msg_extra}")
                 popup.destroy()
                 self.view_class_students(cid)
             except ValueError:

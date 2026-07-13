@@ -1,11 +1,14 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
 from core import BaseDashboard, CoreManager
 from theme import AppTheme
 from datetime import datetime
 
 class StudentDashboard(BaseDashboard):
     def build_home(self):
+        fresh_data = CoreManager.get_query("SELECT Credits, Debt FROM STUDENT WHERE StudentID = ?", (self.user_obj.id,))[0]
+        self.user_obj.credits = fresh_data['Credits']
+        self.user_obj.debt = fresh_data['Debt']
         for w in self.main_content.winfo_children(): w.destroy()
         
         card = tk.Frame(self.main_content, bg=AppTheme.BG_CARD, padx=15, pady=15, bd=0)
@@ -69,22 +72,204 @@ class StudentDashboard(BaseDashboard):
         for g in grades: 
             self.create_card(scroll, g['SubjectName'], f"Điểm hệ 10: {g['FinalScore']}", f"Điểm chữ: {g['LetterGrade']}")
 
+    # ==========================
+    # HỆ THỐNG GIỎ HÀNG ĐĂNG KÝ (MỚI 100%)
+    # ==========================
     def view_registration(self):
         self.set_subpage("Đăng ký Môn")
-        classes = CoreManager.get_query("SELECT c.ClassID, s.SubjectName, c.MaxCapacity, c.CurrentEnrollment FROM COURSE_CLASS c JOIN SUBJECT s ON c.SubjectID = s.SubjectID WHERE c.Status = 0")
-        scroll = self.create_scroll_canvas()
-        for c in classes:
-            self.create_card(scroll, c['SubjectName'], f"Mã lớp: {c['ClassID']}", f"Sĩ số: {c['CurrentEnrollment']}/{c['MaxCapacity']}", "Đăng ký", lambda cid=c['ClassID']: self.process_reg(cid))
+        
+        # Khởi tạo bản nháp nếu chưa có
+        if not hasattr(self, 'draft_courses'):
+            self.draft_courses = {}
 
+        # Tách màn hình làm 2 phần: Danh sách (trên) & Giỏ hàng (dưới)
+        self.list_frame = tk.Frame(self.main_content, bg=AppTheme.BG_APP)
+        self.list_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.draft_frame = tk.Frame(self.main_content, bg=AppTheme.BG_CARD, highlightthickness=1, highlightbackground=AppTheme.BORDER)
+        self.draft_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=(10, 0))
+
+        self.render_course_list()
+        self.render_draft_checkout()
+
+    def render_course_list(self):
+        for w in self.list_frame.winfo_children(): w.destroy()
+        
+        # Lấy danh sách lớp đã đăng ký thành công
+        reg_forms = CoreManager.get_query("SELECT ClassID FROM REGISTRATION_FORM WHERE StudentID = ?", (self.user_obj.id,))
+        registered_class_ids = [r['ClassID'] for r in reg_forms]
+        
+        # Lấy toàn bộ lớp học đang mở đợt đăng ký
+        classes = CoreManager.get_query("SELECT c.ClassID, s.SubjectID, s.SubjectName, c.MaxCapacity, c.CurrentEnrollment, s.Credits, c.Schedule FROM COURSE_CLASS c JOIN SUBJECT s ON c.SubjectID = s.SubjectID WHERE c.Status = 0")
+        
+        canvas = tk.Canvas(self.list_frame, bg=AppTheme.BG_APP, highlightthickness=0)
+        scroll = ttk.Scrollbar(self.list_frame, orient="vertical", command=canvas.yview)
+        scroll_frm = tk.Frame(canvas, bg=AppTheme.BG_APP)
+        scroll_frm.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scroll_frm, anchor="nw", width=370)
+        canvas.configure(yscrollcommand=scroll.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        
+        for c in classes:
+            is_registered = c['ClassID'] in registered_class_ids
+            is_full = c['CurrentEnrollment'] >= c['MaxCapacity']
+            is_in_draft = c['ClassID'] in self.draft_courses
+            
+            if is_registered:
+                bg_col, border_col = AppTheme.STATE_REG_BG, AppTheme.STATE_REG_BORDER  
+                status_txt, status_col = "Đã đăng ký", AppTheme.STATE_REG_TEXT
+            elif is_full:
+                bg_col, border_col = AppTheme.STATE_LOCKED_BG, AppTheme.STATE_LOCKED_BORDER  
+                status_txt, status_col = "Đã khóa", AppTheme.STATE_LOCKED_TEXT
+            else:
+                bg_col, border_col = AppTheme.STATE_OPEN_BG, AppTheme.STATE_OPEN_BORDER  
+                status_txt, status_col = "Mở", AppTheme.STATE_OPEN_TEXT
+
+            # Tạo khung viền (Card) bao ngoài
+            card = tk.Frame(scroll_frm, bg=bg_col, highlightbackground=border_col, highlightthickness=1, padx=15, pady=15)
+            card.pack(fill=tk.X, padx=15, pady=8)
+            
+            # --- Dòng 1: Tên môn (Trái) & Trạng thái (Phải) ---
+            row1 = tk.Frame(card, bg=bg_col)
+            row1.pack(fill=tk.X)
+            tk.Label(row1, text=c['SubjectName'], font=AppTheme.TITLE_M, bg=bg_col, fg=AppTheme.TEXT_MAIN).pack(side=tk.LEFT)
+            tk.Label(row1, text=status_txt, font=AppTheme.TITLE_S, bg=bg_col, fg=status_col).pack(side=tk.RIGHT)
+            
+            # --- Dòng 2: Tín chỉ | Giờ học | Sĩ số ---
+            row2 = tk.Frame(card, bg=bg_col)
+            row2.pack(fill=tk.X, pady=(5, 12))
+            
+            time_slot = c['Schedule'].split(' - ')[0].strip()
+            tk.Label(row2, text=f"{c['Credits']} Tín chỉ", font=AppTheme.BODY_M, bg=bg_col, fg=AppTheme.TEXT_MUTED).pack(side=tk.LEFT, padx=(0, 10))
+            tk.Label(row2, text=time_slot, font=AppTheme.BODY_M, bg=bg_col, fg=AppTheme.TEXT_MUTED).pack(side=tk.LEFT, padx=(0, 10))
+            
+            # Xử lý text sĩ số (Nếu đầy thì tô chữ đỏ thêm chữ Đầy)
+            cap_fg = AppTheme.STATE_LOCKED_TEXT if is_full else AppTheme.TEXT_MUTED
+            cap_txt = f"{c['CurrentEnrollment']}/{c['MaxCapacity']} Đầy" if is_full else f"{c['CurrentEnrollment']}/{c['MaxCapacity']}"
+            tk.Label(row2, text=cap_txt, font=AppTheme.TITLE_S if is_full else AppTheme.BODY_M, bg=bg_col, fg=cap_fg).pack(side=tk.LEFT)
+
+            # --- Dòng 3: Nút chức năng (Chỉ hiện khi lớp Mở hoặc Khóa) ---
+            if not is_registered:
+                if is_full:
+                    # Trạng thái KHÓA: Nút xám, vô hiệu hóa
+                    tk.Button(card, text="🔒 Không khả dụng", font=AppTheme.BTN_TEXT, bg=AppTheme.BTN_DISABLED_BG, fg=AppTheme.BTN_DISABLED_TEXT, bd=0, state=tk.DISABLED).pack(fill=tk.X, ipady=8)
+                elif is_in_draft:
+                    # Trạng thái ĐANG CHỌN NHÁP
+                    tk.Button(card, text="✓ Đã thêm vào Bản nháp", font=AppTheme.BTN_TEXT, bg=AppTheme.BTN_DRAFT_BG, fg="white", bd=0, state=tk.DISABLED).pack(fill=tk.X, ipady=8)
+                else:
+                    # Trạng thái MỞ: Nút xanh mòng két (Teal)
+                    tk.Button(card, text="➕ Thêm vào Bản nháp", font=AppTheme.BTN_TEXT, bg=AppTheme.BTN_ACTION_TEAL, fg="white", bd=0, command=lambda cls=c: self.add_to_draft(cls)).pack(fill=tk.X, ipady=8)
+
+    def add_to_draft(self, cls_info):
+        target_sub = cls_info['SubjectID']
+        new_time_slot = cls_info['Schedule'].split(' - ')[0].strip()
+        
+        # 1. Kiểm tra đối chiếu với các lớp trong CSDL
+        current_classes = CoreManager.get_query("SELECT c.Schedule, c.SubjectID, s.SubjectName FROM REGISTRATION_FORM r JOIN COURSE_CLASS c ON r.ClassID = c.ClassID JOIN SUBJECT s ON c.SubjectID = s.SubjectID WHERE r.StudentID = ?", (self.user_obj.id,))
+        for c in current_classes:
+            if c['SubjectID'] == target_sub:
+                return messagebox.showerror("Trùng môn", f"Bạn đã đăng ký môn {c['SubjectName']} rồi!")
+            if new_time_slot == c['Schedule'].split(' - ')[0].strip():
+                return messagebox.showerror("Trùng lịch", f"Trùng lịch {new_time_slot} với môn {c['SubjectName']}!")
+                
+        # 2. Kiểm tra đối chiếu với các lớp đang nằm trong Bản nháp
+        for d_id, d_info in self.draft_courses.items():
+            if d_info['SubjectID'] == target_sub:
+                return messagebox.showerror("Trùng môn", f"Môn {d_info['SubjectName']} đã có trong bản nháp!")
+            if new_time_slot == d_info['Schedule'].split(' - ')[0].strip():
+                return messagebox.showerror("Trùng lịch", f"Trùng lịch {new_time_slot} với môn {d_info['SubjectName']} (đang nháp)!")
+                
+        # Nếu OK thì ném vào giỏ hàng và vẽ lại màn hình
+        self.draft_courses[cls_info['ClassID']] = cls_info
+        self.render_course_list()
+        self.render_draft_checkout()
+
+    def remove_from_draft(self, class_id):
+        if class_id in self.draft_courses:
+            del self.draft_courses[class_id]
+            self.render_course_list()
+            self.render_draft_checkout()
+
+    def render_draft_checkout(self):
+        for w in self.draft_frame.winfo_children(): w.destroy()
+        
+        if not self.draft_courses:
+            tk.Label(self.draft_frame, text="Bản nháp đang trống", font=AppTheme.BODY_M, fg=AppTheme.TEXT_MUTED, bg=AppTheme.BG_CARD, pady=10).pack()
+            return
+            
+        tk.Label(self.draft_frame, text="🛒 Bản nháp Đăng ký", font=AppTheme.TITLE_S, bg=AppTheme.BG_CARD, fg=AppTheme.TEXT_MAIN).pack(anchor="w", padx=10, pady=(10,5))
+        
+        # Tự động tính toán số tín chỉ dự kiến (Real-time Credit Calculation)
+        draft_credits = sum(c['Credits'] for c in self.draft_courses.values())
+        proj_credits = self.user_obj.credits + draft_credits
+        
+        for cid, cinfo in self.draft_courses.items():
+            item_frm = tk.Frame(self.draft_frame, bg=AppTheme.BG_CARD)
+            item_frm.pack(fill=tk.X, padx=10, pady=2)
+            tk.Label(item_frm, text=f"{cinfo['SubjectName']} ({cid})", font=AppTheme.BODY_S, bg=AppTheme.BG_CARD, fg=AppTheme.TEXT_MAIN).pack(side=tk.LEFT)
+            tk.Button(item_frm, text="❌", font=AppTheme.BODY_S, bg=AppTheme.BG_CARD, fg=AppTheme.DANGER, bd=0, command=lambda x=cid: self.remove_from_draft(x)).pack(side=tk.RIGHT)
+            
+        summary_frm = tk.Frame(self.draft_frame, bg=AppTheme.BG_CARD)
+        summary_frm.pack(fill=tk.X, padx=10, pady=10)
+        
+        tk.Label(summary_frm, text=f"Dự kiến: {proj_credits}/120 TC", font=AppTheme.TITLE_S, fg=AppTheme.PRIMARY, bg=AppTheme.BG_CARD).pack(side=tk.LEFT)
+        tk.Button(summary_frm, text="Xác nhận", font=AppTheme.BTN_TEXT, bg=AppTheme.SUCCESS, fg=AppTheme.BG_CARD, bd=0, command=self.checkout_draft).pack(side=tk.RIGHT, ipadx=10, ipady=5)
+
+    def checkout_draft(self):
+        from datetime import date
+        today_str = date.today().strftime("%Y-%m-%d")
+        
+        success_count = 0
+        for cid in self.draft_courses:
+            # Kiểm tra an ninh lần cuối trước khi ghi đè DB
+            cap = CoreManager.get_query("SELECT MaxCapacity, CurrentEnrollment FROM COURSE_CLASS WHERE ClassID = ?", (cid,))[0]
+            if cap['CurrentEnrollment'] >= cap['MaxCapacity']:
+                messagebox.showerror("Lỗi", f"Lớp {cid} đã đầy trong lúc bạn thao tác!")
+                continue
+                
+            res = CoreManager.execute_query("INSERT INTO REGISTRATION_FORM VALUES (?, ?, ?, ?)", (f"REG-{self.user_obj.id}-{cid}", self.user_obj.id, cid, today_str))
+            if res[0]:
+                CoreManager.execute_query("UPDATE COURSE_CLASS SET CurrentEnrollment = CurrentEnrollment + 1 WHERE ClassID = ?", (cid,))
+                success_count += 1
+                
+        if success_count > 0:
+            messagebox.showinfo("Hoàn tất", f"Đã đăng ký thành công {success_count} môn học!")
+            self.draft_courses.clear()
+            self.view_registration()
+
+    # ==========================
+    # CÁC CHỨC NĂNG KHÁC 
+    # ==========================
     def view_cancel(self):
         self.set_subpage("Hủy Học phần")
-        classes = CoreManager.get_query("SELECT r.FormID, c.ClassID, s.SubjectName FROM REGISTRATION_FORM r JOIN COURSE_CLASS c ON r.ClassID = c.ClassID JOIN SUBJECT s ON c.SubjectID = s.SubjectID WHERE r.StudentID = ?", (self.user_obj.id,))
+        
+        # Dùng LEFT JOIN để móc thêm dữ liệu điểm (nếu có) từ bảng ACADEMIC_RESULT
+        classes = CoreManager.get_query("""
+            SELECT r.FormID, c.ClassID, s.SubjectName, a.LetterGrade 
+            FROM REGISTRATION_FORM r 
+            JOIN COURSE_CLASS c ON r.ClassID = c.ClassID 
+            JOIN SUBJECT s ON c.SubjectID = s.SubjectID 
+            LEFT JOIN ACADEMIC_RESULT a ON r.FormID = a.FormID
+            WHERE r.StudentID = ?
+        """, (self.user_obj.id,))
+        
         scroll = self.create_scroll_canvas()
         for c in classes:
-            self.create_card(scroll, c['SubjectName'], f"Mã lớp: {c['ClassID']}", None, "Hủy Môn", lambda fid=c['FormID'], cid=c['ClassID']: self.process_cancel(fid, cid), "#FF3B30")
+            # Kiểm tra xem cột LetterGrade có dữ liệu không
+            has_grade = c['LetterGrade'] is not None 
+            
+            if has_grade:
+                # Nếu đã có điểm -> Khóa nút hủy, đổi màu xám
+                self.create_card(scroll, c['SubjectName'], f"Mã lớp: {c['ClassID']}", f"Đã chốt điểm: {c['LetterGrade']}", "🔒 Không thể hủy", lambda: messagebox.showwarning("Cảnh báo", "Môn học này đã được giảng viên vào điểm, không thể hủy!"), AppTheme.TEXT_MUTED)
+            else:
+                # Nếu chưa có điểm -> Cho phép hủy bình thường
+                self.create_card(scroll, c['SubjectName'], f"Mã lớp: {c['ClassID']}", "Chưa có điểm", "Hủy Môn", lambda fid=c['FormID'], cid=c['ClassID']: self.process_cancel(fid, cid), AppTheme.DANGER)
 
     def view_graduation(self):
         self.set_subpage("Đơn Tốt nghiệp")
+        fresh_data = CoreManager.get_query("SELECT Credits, Debt FROM STUDENT WHERE StudentID = ?", (self.user_obj.id,))[0]
+        self.user_obj.credits = fresh_data['Credits']
+        self.user_obj.debt = fresh_data['Debt']
         elig = "Đủ điều kiện" if self.user_obj.credits >= 120 and self.user_obj.debt == 0 else "Chưa đủ ĐK (Thiếu TC hoặc còn nợ)"
         self.create_card(self.main_content, "Trạng thái", f"Tín chỉ: {self.user_obj.credits}/120 | Nợ: {self.user_obj.debt}", elig, "Nộp Đơn" if elig=="Đủ điều kiện" else None, lambda: CoreManager.execute_query("INSERT INTO GRADUATION_APP VALUES (?, ?, 'Pending')", (f"APP-{self.user_obj.id}", self.user_obj.id)))
     
@@ -92,44 +277,22 @@ class StudentDashboard(BaseDashboard):
         self.set_subpage("Học phí")
         self.create_card(self.main_content, "Công nợ Học kỳ", f"Cần đóng: {self.user_obj.debt} VND", None, "Thanh toán ngay" if self.user_obj.debt > 0 else None, self.pay_tuition)
 
-    def process_reg(self, cid):
-        from datetime import date
-        cap = CoreManager.get_query("SELECT MaxCapacity, CurrentEnrollment, Schedule, SubjectID FROM COURSE_CLASS WHERE ClassID = ?", (cid,))[0]
-        if cap['CurrentEnrollment'] >= cap['MaxCapacity']: 
-            messagebox.showerror("Lỗi", "Lớp đã đầy!")
-            return
-            
-        target_sub = cap['SubjectID']
-        new_time_slot = cap['Schedule'].split(' - ')[0] 
-        current_classes = CoreManager.get_query("SELECT c.Schedule, c.SubjectID, s.SubjectName FROM REGISTRATION_FORM r JOIN COURSE_CLASS c ON r.ClassID = c.ClassID JOIN SUBJECT s ON c.SubjectID = s.SubjectID WHERE r.StudentID = ?", (self.user_obj.id,))
-        
-        # Fix FC002: Kiểm tra trùng môn học (SubjectID)
-        for c in current_classes:
-            if c['SubjectID'] == target_sub:
-                messagebox.showerror("Trùng môn", f"Bạn đã đăng ký môn {c['SubjectName']} ở một lớp khác trong học kỳ này!")
-                return
-            existing_time_slot = c['Schedule'].split(' - ')[0]
-            if new_time_slot == existing_time_slot:
-                messagebox.showerror("Trùng lịch", f"Trùng lịch {new_time_slot} với môn {c['SubjectName']}!")
-                return
-                
-        # Fix FC003: Dùng ngày tháng thực tế thay vì "2024-01-01"
-        today_str = date.today().strftime("%Y-%m-%d")
-        res = CoreManager.execute_query("INSERT INTO REGISTRATION_FORM VALUES (?, ?, ?, ?)", (f"REG-{self.user_obj.id}-{cid}", self.user_obj.id, cid, today_str))
-        if res[0]: 
-            CoreManager.execute_query("UPDATE COURSE_CLASS SET CurrentEnrollment = CurrentEnrollment + 1 WHERE ClassID = ?", (cid,))
-            messagebox.showinfo("OK", "Đăng ký thành công!")
-            self.view_registration()
-
     def process_cancel(self, fid, cid):
+        # 1. Kiểm tra bảo mật (Backend Check): Lỡ sinh viên dùng tool bypass nút bấm thì chặn ở đây
+        has_grade = CoreManager.get_query("SELECT * FROM ACADEMIC_RESULT WHERE FormID = ?", (fid,))
+        if has_grade:
+            messagebox.showerror("Lỗi Nghiệp vụ", "Học phần này đã được nhập điểm, hệ thống từ chối hủy!")
+            return
+
+        # 2. Kiểm tra thời hạn (Deadline)
         from datetime import datetime
-        # Fix FC001: Đẩy deadline lên tương lai để luồng Happy Path chạy mượt
         deadline_str = "2027-01-01 00:00:00" 
         deadline = datetime.strptime(deadline_str, "%Y-%m-%d %H:%M:%S")
         if datetime.now() > deadline:
-            messagebox.showwarning("Đã đóng cổng", "Thời gian hủy học phần đã đóng!")
+            messagebox.showwarning("Đã đóng cổng", "Thời gian hủy học phần đã kết thúc!")
             return
         
+        # 3. Tiến hành Hủy
         ans = messagebox.askyesno("Xác nhận", f"Bạn có chắc chắn muốn hủy học phần lớp {cid}?")
         if ans:
             CoreManager.execute_query("DELETE FROM REGISTRATION_FORM WHERE FormID = ?", (fid,))
@@ -156,6 +319,5 @@ class StudentDashboard(BaseDashboard):
         btn_direct = tk.Button(popup, text="💵 Tiền mặt (Tại phòng Tài vụ)", font=AppTheme.BTN_TEXT, bg=AppTheme.PRIMARY, fg=AppTheme.BG_CARD, bd=0, command=lambda: process_payment("Trực tiếp"))
         btn_direct.pack(fill=tk.X, padx=20, pady=8, ipady=10)
 
-        # Fix FC005: Cho phép luồng thanh toán giả lập chạy thành công thay vì chặn
         btn_online = tk.Button(popup, text="💳 QR / MoMo / Thẻ", font=AppTheme.BTN_TEXT, bg=AppTheme.SUCCESS, fg=AppTheme.BG_CARD, bd=0, command=lambda: process_payment("Online (Giả lập)"))
         btn_online.pack(fill=tk.X, padx=20, pady=8, ipady=10)
